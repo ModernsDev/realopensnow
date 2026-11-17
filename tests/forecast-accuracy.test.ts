@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { waterburyPoint } from '../src/catalog.ts'
 import { observationWindow, pairedSnow, summarizeAccuracy } from '../worker/accuracy.mjs'
+import { captureSnapshot } from '../worker/forecast-snapshots.mjs'
 
 const hour = 3_600_000
 const date = (day: number, h = 6) => `2026-11-${day}T${String(h).padStart(2, '0')}:00:00+00:00`
@@ -74,4 +75,20 @@ test('scores count a window once per model and lead, use only forecasts acquired
   assert.deepEqual(score('ecmwf_ifs025', 0), { model: 'ecmwf_ifs025', lead: 0, count: 1, bias: 6 - 5.08, mae: 6 - 5.08, insufficient: true })
   assert.deepEqual(score('ecmwf_ifs025', 1), { model: 'ecmwf_ifs025', lead: 1, count: 1, bias: 3 - 5.08, mae: 5.08 - 3, insufficient: true })
   assert.deepEqual(score('icon_seamless', 0), { model: 'icon_seamless', lead: 0, count: 0, bias: null, mae: null, insufficient: true })
+})
+
+test('snapshot capture uses Worker-supported manual redirects and rejects upstream redirection', async () => {
+  const realFetch = globalThis.fetch
+  let redirectMode: RequestRedirect | undefined
+  globalThis.fetch = async (_url, options) => {
+    redirectMode = options?.redirect
+    return Response.redirect('https://example.invalid/', 302)
+  }
+  try {
+    const response = await captureSnapshot({}, waterburyPoint.id)
+    assert.equal(redirectMode, 'manual')
+    assert.equal(response.status, 502)
+  } finally {
+    globalThis.fetch = realFetch
+  }
 })

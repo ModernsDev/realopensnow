@@ -30,7 +30,7 @@ Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m
 
 ## 发布
 
-正式站点为 `https://realopensnow.moderns.dev`。通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
+正式站点为 `https://snow.moderns.dev`。通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
 
 
 `npm run build:site` 生成 Sites Worker 制品。使用 `.openai/hosting.json` 的项目发布与回滚；公开版先向同域服务申请查询额度，再由浏览器直连 Open-Meteo。服务只接受目录已有查询点，D1 通过单条原子写入限制全站每 15 分钟最多 30 次。滚动一分钟、小时、日、31 天最多放行 60、150、2,910、89,310 个 HTTP 请求；按每请求三模型保守计 180、450、8,730、267,930 次。免费端点限额见 [Open-Meteo 服务条款](https://open-meteo.com/en/terms)和[计量说明](https://open-meteo.com/en/pricing)。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。

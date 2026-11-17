@@ -30,8 +30,10 @@ async function weather(env, point) {
   let status = 502
   let fetched
   let body
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
   try {
-    const upstream = await fetch(source, { signal: AbortSignal.timeout(12000), redirect: 'error' })
+    const upstream = await fetch(source, { signal: controller.signal, redirect: 'manual' })
     status = upstream.status === 429 ? 429 : 502
     if (upstream.ok) {
       const data = await upstream.json()
@@ -43,7 +45,9 @@ async function weather(env, point) {
     }
     console[status === 200 ? 'info' : 'warn'](JSON.stringify({ event: 'forecast_refresh', point: id, upstream: upstream.status, status }))
   } catch (error) {
-    console.warn(JSON.stringify({ event: 'forecast_refresh', point: id, status, reason: error.name }))
+    console.warn(JSON.stringify({ event: 'forecast_refresh', point: id, status, reason: error.message }))
+  } finally {
+    clearTimeout(timeout)
   }
 
   await env.DB.prepare('UPDATE forecast_cache SET status = ?, fetched = ?, body = ? WHERE point = ? AND slot = ?')

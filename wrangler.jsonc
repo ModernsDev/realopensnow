@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "realopensnow",
+  "main": "dist/server/index.js",
+  "account_id": "fbe7c8030906ad466c3b24bf7949f8dc",
+  "compatibility_date": "2026-09-24",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "realopensnow",
+    "database_id": "3c335084-f611-4f42-9b98-7771578da9c5",
+    "migrations_dir": "drizzle"
+  }],
+  "routes": [{
+    "pattern": "realopensnow.moderns.dev",
+    "custom_domain": true
+  }]
+}

@@ -16,7 +16,7 @@ export async function captureSnapshot(env, pointId) {
   const requested = new Date().toISOString()
   let batch, hourly
   try {
-    const upstream = await fetch(source, { redirect: 'error', signal: AbortSignal.timeout(12000) })
+    const upstream = await fetch(source, { redirect: 'manual', signal: AbortSignal.timeout(12000) })
     if (upstream.status === 429) return Response.json({ error: 'Open-Meteo 已限流，未保存快照。' }, { status: 429, headers: noCache })
     if (!upstream.ok) throw new Error(`Open-Meteo HTTP ${upstream.status}`)
     const data = await upstream.json()

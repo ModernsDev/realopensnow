@@ -1,82 +1,47 @@
 import { assets, points } from './generated.js'
-import { localDate } from './weather.js'
 
 const slotMs = 15 * 60 * 1000
-const cacheMs = 4 * slotMs
-const store = 'SELECT slot, status, fetched, body FROM forecast_cache WHERE point = ?'
+const quota = 30
 
-function weatherResponse(status, body, fetched) {
-  const headers = { 'content-type': 'application/json', 'cache-control': 'no-store' }
-  if (fetched) headers['x-weather-fetched-at'] = fetched
-  return new Response(body ?? JSON.stringify({ error: true }), { status, headers })
-}
-
-async function weather(env, point) {
-  const { id, timezone, source } = point
+async function api(request, env, url) {
+  const [, , route, point] = url.pathname.split('/')
+  if (request.method !== 'POST') return new Response(null, { status: 405 })
+  if (request.headers.get('origin') !== url.origin) return new Response(null, { status: 403 })
+  if (!points.has(point) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
+  if (route === 'weather-error') {
+    const kind = url.searchParams.get('kind')
+    if (kind !== 'rate_limit' && kind !== 'request') return new Response(null, { status: 400 })
+    console.warn(JSON.stringify({ event: 'forecast_client_error', point, kind }))
+    return new Response(null, { status: 204 })
+  }
+  if (route !== 'quota') return new Response(null, { status: 404 })
   const now = Date.now()
   const slot = Math.floor(now / slotMs)
-  const cached = await env.DB.prepare(store).bind(id).first()
-  if (cached?.status === 200 && now - Date.parse(cached.fetched) < cacheMs &&
-      localDate(now, timezone) === localDate(Date.parse(cached.fetched), timezone)) {
-    return weatherResponse(200, cached.body, cached.fetched)
-  }
-  if (cached?.slot >= slot) return weatherResponse(cached.status === 200 ? 503 : cached.status)
-
-  const reservation = await env.DB.prepare(
-    'INSERT INTO forecast_cache (point, slot, status) VALUES (?, ?, 503) ON CONFLICT(point) DO UPDATE SET slot = excluded.slot, status = 503, fetched = NULL, body = NULL WHERE forecast_cache.slot < excluded.slot'
-  ).bind(id, slot).run()
-  if (!reservation.meta.changes) return weatherResponse(503)
-
-  let status = 502
-  let fetched
-  let body
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 12000)
   try {
-    const upstream = await fetch(source, { signal: controller.signal, redirect: 'manual' })
-    status = upstream.status === 429 ? 429 : 502
-    if (upstream.ok) {
-      const data = await upstream.json()
-      if (!data.error && data.timezone === timezone && Array.isArray(data.hourly?.time)) {
-        body = JSON.stringify(data)
-        fetched = new Date().toISOString()
-        status = 200
-      }
-    }
-    console[status === 200 ? 'info' : 'warn'](JSON.stringify({ event: 'forecast_refresh', point: id, upstream: upstream.status, status }))
+    const permit = await env.DB.prepare(
+      'INSERT INTO weather_quota (id, slot, count) VALUES (1, ?, 1) ON CONFLICT(id) DO UPDATE SET slot = excluded.slot, count = CASE WHEN weather_quota.slot < excluded.slot THEN 1 ELSE weather_quota.count + 1 END WHERE weather_quota.slot < excluded.slot OR (weather_quota.slot = excluded.slot AND weather_quota.count < ?)'
+    ).bind(slot, quota).run()
+    if (permit.meta.changes) return new Response(null, { status: 204 })
+    console.warn(JSON.stringify({ event: 'forecast_quota', point, status: 429 }))
+    return new Response(null, { status: 429, headers: { 'retry-after': String(Math.ceil((slotMs - now % slotMs) / 1000)) } })
   } catch (error) {
-    console.warn(JSON.stringify({ event: 'forecast_refresh', point: id, status, reason: error.message }))
-  } finally {
-    clearTimeout(timeout)
+    console.error(JSON.stringify({ event: 'forecast_quota', point, status: 503, reason: error.name }))
+    return new Response(null, { status: 503 })
   }
-
-  await env.DB.prepare('UPDATE forecast_cache SET status = ?, fetched = ?, body = ? WHERE point = ? AND slot = ?')
-    .bind(status, fetched ?? null, body ?? null, id, slot).run()
-  return weatherResponse(status, body, fetched)
 }
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url)
+    if (url.pathname.startsWith('/api/')) return api(request, env, url)
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
-    const { pathname } = new URL(request.url)
-    if (pathname.startsWith('/api/forecast/')) {
-      if (request.method !== 'GET') return new Response(null, { status: 405 })
-      const point = points.get(pathname.slice('/api/forecast/'.length))
-      if (!point) return weatherResponse(404)
-      try {
-        return await weather(env, point)
-      } catch (error) {
-        console.error(JSON.stringify({ event: 'forecast_storage_error', point: point.id, reason: error.name }))
-        return weatherResponse(503)
-      }
-    }
-    const asset = assets.get(pathname)
+    const asset = assets.get(url.pathname)
     if (!asset) return new Response('Not found', { status: 404 })
     const [type, base64] = asset
     return new Response(request.method === 'HEAD' ? null : Uint8Array.from(atob(base64), character => character.charCodeAt(0)), {
       headers: {
         'content-type': type,
-        'cache-control': pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+        'cache-control': url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
         'x-content-type-options': 'nosniff',
       },
     })

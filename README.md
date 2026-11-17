@@ -1,6 +1,6 @@
 # RealOpenSnow
 
-网页版雪场追踪原型。React、TypeScript、Vite，本地预览直接查询 Open-Meteo，公开版通过同域服务查询。
+网页版雪场追踪原型。React、TypeScript、Vite，浏览器查询 Open-Meteo，公开版先经本站的配额门控。
 
 ```sh
 npm install
@@ -24,8 +24,8 @@ npm run lint
 
 ## 发布
 
-`npm run build:site` 生成 Sites Worker 制品。使用 `.openai/hosting.json` 的项目发布与回滚；同域预报接口只接受目录已有查询点。D1 原子保留每个点每 15 分钟最多一次上游请求，成功响应共用一小时缓存，雪场当地日期切换时立即停止使用上一日缓存。最多 20 点，滚动一分钟、小时、日、30 天最多触发 20、100、1,940、57,620 个 HTTP 请求；按每请求三模型保守计 60、300、5,820、172,860 次。免费端点限额见 [Open-Meteo 服务条款](https://open-meteo.com/en/terms)和[计量说明](https://open-meteo.com/en/pricing)。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。
+`npm run build:site` 生成 Sites Worker 制品。使用 `.openai/hosting.json` 的项目发布与回滚；公开版先向同域服务申请查询额度，再由浏览器直连 Open-Meteo。服务只接受目录已有查询点，D1 通过单条原子写入限制全站每 15 分钟最多 30 次。滚动一分钟、小时、日、31 天最多放行 60、150、2,910、89,310 个 HTTP 请求；按每请求三模型保守计 180、450、8,730、267,930 次。免费端点限额见 [Open-Meteo 服务条款](https://open-meteo.com/en/terms)和[计量说明](https://open-meteo.com/en/pricing)。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。
 
 客户端以数据获取时间起算六小时或雪场当地换日作为失效边界。刷新失败、限流和过期状态在预报、对比与雪报入口均有明确提示。
 
-Sites 的 Worker 日志按 `forecast_refresh` 筛选上游状态，按 `forecast_storage_error` 排查存储连接或查询错误。按 Sites 版本历史部署上一已知可用版本并核对返回 URL 和部署状态，回滚不清空 D1。首版没有上一可用版本时，在 Sites 将访问权限设回仅所有者，随后匿名请求公开 URL 核对访问已撤回。
+Sites 的 Worker 日志按 `forecast_client_error` 查看浏览器报告的上游请求错误与限流，按 `forecast_quota` 查看站点限流与存储错误。按 Sites 版本历史部署上一已知可用版本并核对返回 URL 和部署状态，回滚不清空 D1。首版没有上一可用版本时，在 Sites 将访问权限设回仅所有者，随后匿名请求公开 URL 核对访问已撤回。

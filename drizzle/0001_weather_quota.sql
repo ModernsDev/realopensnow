@@ -1,0 +1,5 @@
+CREATE TABLE weather_quota (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  slot INTEGER NOT NULL,
+  count INTEGER NOT NULL
+);

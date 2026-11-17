@@ -65,14 +65,28 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const dates = forecastDates(requested, resort.timezone)
-  const source = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-    ? `/api/forecast/${point.id}`
-    : forecastSource(lat, lon, elevation, resort.timezone)
-  const response = await fetch(source, { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000) })
-  if (response.status === 429) throw new Error('天气服务已限流（429），请稍后重试。')
-  if (!response.ok) throw new Error(`天气服务请求失败（${response.status}）`)
-  const data = await response.json()
-  const fetched = response.headers.get('x-weather-fetched-at') ?? new Date().toISOString()
+  const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
+  const source = forecastSource(lat, lon, elevation, resort.timezone)
+  const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
+  if (hosted) {
+    const permit = await fetch(`/api/quota/${point.id}`, { method: 'POST', signal: requestSignal })
+    if (permit.status === 429) throw new Error('本站预报请求已限流（429），请稍后重试。')
+    if (!permit.ok) throw new Error(`预报服务暂不可用（${permit.status}）`)
+  }
+  let data
+  try {
+    const response = await fetch(source, { cache: 'no-store', signal: requestSignal })
+    if (response.status === 429) throw new Error('天气服务已限流（429），请稍后重试。')
+    if (!response.ok) throw new Error(`天气服务请求失败（${response.status}）`)
+    data = await response.json()
+  } catch (error) {
+    if (hosted && !signal?.aborted) {
+      const kind = error instanceof Error && error.message.includes('429') ? 'rate_limit' : 'request'
+      navigator.sendBeacon(`/api/weather-error/${point.id}?kind=${kind}`)
+    }
+    throw error
+  }
+  const fetched = new Date().toISOString()
   if (data.error) throw new Error('天气服务返回错误，无法生成预报')
   if (data.elevation !== elevation || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) throw new Error('天气服务返回的查询高度或网格坐标无效')
   const aggregated = aggregateHourly(data, dates, resort.timezone)

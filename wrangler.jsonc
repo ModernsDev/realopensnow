@@ -14,7 +14,7 @@
     "migrations_dir": "drizzle"
   }],
   "routes": [{
-    "pattern": "realopensnow.moderns.dev",
+    "pattern": "snow.moderns.dev",
     "custom_domain": true
   }]
 }

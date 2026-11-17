@@ -1,4 +1,5 @@
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { stripTypeScriptTypes } from 'node:module'
 import { resorts, queryBlockReason } from '../src/catalog.ts'
 
 const files = ['index.html', 'favicon.svg', ...readdirSync('dist/assets').map(name => `assets/${name}`)]
@@ -8,6 +9,12 @@ const points = resorts.flatMap(resort => resort.points.filter(point => !queryBlo
 
 rmSync('dist', { recursive: true })
 mkdirSync('dist/server', { recursive: true })
-copyFileSync('worker/index.js', 'dist/server/index.js')
-copyFileSync('worker/stowe-observations.mjs', 'dist/server/stowe-observations.mjs')
+for (const name of readdirSync('worker')) {
+  const source = readFileSync(`worker/${name}`, 'utf8')
+  writeFileSync(`dist/server/${name}`, source.replaceAll("from '../src/catalog.ts'", "from './catalog.js'").replaceAll("from '../src/weather.ts'", "from './weather.js'"))
+}
+for (const name of ['weather', 'catalog']) {
+  const source = readFileSync(`src/${name}.ts`, 'utf8').replaceAll("from './catalog.ts'", "from './catalog.js'")
+  writeFileSync(`dist/server/${name}.js`, stripTypeScriptTypes(source))
+}
 writeFileSync('dist/server/generated.js', `export const assets = new Map(${JSON.stringify(assets)});\nexport const points = new Set(${JSON.stringify(points)});\n`)

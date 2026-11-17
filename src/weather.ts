@@ -64,7 +64,6 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const { lat, lon } = point.coordinates.value!
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
-  const dates = forecastDates(requested, resort.timezone)
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
   const source = forecastSource(lat, lon, elevation, resort.timezone)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
@@ -87,12 +86,20 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     throw error
   }
   const fetched = new Date().toISOString()
+  const batch = forecastBatch(data, resort, point, requested, fetched)
+  const report = dailyReport(batch)
+  return { ...batch, report, reportGenerated: new Date().toISOString() }
+}
+
+export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string): Forecast {
+  const { lat, lon } = point.coordinates.value!
+  const elevation = point.elevation.value!
+  const dates = forecastDates(requested, resort.timezone)
+  const source = forecastSource(lat, lon, elevation, resort.timezone)
   if (data.error) throw new Error('天气服务返回错误，无法生成预报')
   if (data.elevation !== elevation || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) throw new Error('天气服务返回的查询高度或网格坐标无效')
   const aggregated = aggregateHourly(data, dates, resort.timezone)
-  const batch = { dates, ...aggregated, requested, fetched, source, elevation, timezone: resort.timezone, grid: { lat: data.latitude, lon: data.longitude }, query: { resortId: resort.id, pointId: point.id, lat, lon, elevation, timezone: resort.timezone } }
-  const report = dailyReport(batch)
-  return { ...batch, report, reportGenerated: new Date().toISOString() }
+  return { dates, ...aggregated, requested, fetched, source, elevation, timezone: resort.timezone, grid: { lat: data.latitude, lon: data.longitude }, query: { resortId: resort.id, pointId: point.id, lat, lon, elevation, timezone: resort.timezone } }
 }
 
 export function reportBlockReason(data: Forecast) {

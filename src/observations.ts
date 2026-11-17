@@ -1,4 +1,4 @@
-import { resorts, sources } from './catalog.ts'
+import { resorts, sources, waterburyPoint } from './catalog.ts'
 
 const hour = 60 * 60 * 1000
 const stationOffset = '-08:00'
@@ -38,7 +38,7 @@ export const observationStations: Record<string, Station | undefined> = {
     provider: 'cocorahs',
     maxAgeHours: 30,
     name: 'Waterbury 3.0 NW · CoCoRaHS VT-WS-19',
-    elevation: Math.round(458 * 0.3048),
+    elevation: waterburyPoint.elevation.value,
     source: 'CoCoRaHS · 每日观测',
     url: 'https://dex.cocorahs.org/stations/VT-WS-19/obs-tables',
     terms: 'https://www.cocorahs.org/content.aspx?page=datausagepolicy',

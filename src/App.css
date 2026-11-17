@@ -16,3 +16,10 @@
 .compare th span{font-weight:400;margin-top:4px}
 .compare th a,.compare-remove{display:inline-block;margin-top:8px}
 .compare-remove{margin-left:8px;padding:3px 7px;font-size:12px}
+
+.observation-section h3 { margin: 0 0 8px; }
+.observation-section button { margin-top: 8px; }
+.observation-readings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; margin: 12px 0; }
+.observation-readings > div { padding: 10px 12px; border: 1px solid #dbe2eb; border-radius: 8px; background: #fff; }
+.observation-readings dd { margin: 4px 0 0; }
+.observation-readings dd span { display: block; }

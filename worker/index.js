@@ -1,4 +1,5 @@
 import { assets, points } from './generated.js'
+import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
 
 const slotMs = 15 * 60 * 1000
 const quota = 30
@@ -33,6 +34,10 @@ async function api(request, env, url) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
+    if (url.pathname === stoweObservationPath) {
+      if (request.method !== 'GET') return new Response(null, { status: 405 })
+      return stoweObservations()
+    }
     if (url.pathname.startsWith('/api/')) return api(request, env, url)
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
     const asset = assets.get(url.pathname)

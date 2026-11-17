@@ -9,4 +9,5 @@ const points = resorts.flatMap(resort => resort.points.filter(point => !queryBlo
 rmSync('dist', { recursive: true })
 mkdirSync('dist/server', { recursive: true })
 copyFileSync('worker/index.js', 'dist/server/index.js')
+copyFileSync('worker/stowe-observations.mjs', 'dist/server/stowe-observations.mjs')
 writeFileSync('dist/server/generated.js', `export const assets = new Map(${JSON.stringify(assets)});\nexport const points = new Set(${JSON.stringify(points)});\n`)

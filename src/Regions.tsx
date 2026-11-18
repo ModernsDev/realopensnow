@@ -22,6 +22,7 @@ const periods = [
   ['今天', 0, 1],
   ['明天', 1, 2],
   ['后天', 2, 3],
+  ['未来 3 天', 0, 3],
   ['未来 7 天', 0, 7],
   ['未来 14 天', 0, 14],
   ['第 8–14 天', 7, 14],
@@ -57,7 +58,7 @@ export const Regions = memo(function Regions() {
   const [samples, setSamples] = useState<Sample[]>()
   const [error, setError] = useState('')
   const [revision, refresh] = useState(0)
-  const [period, select] = useState(3)
+  const [period, select] = useState(4)
   const [, start, end] = periods[period]
   useEffect(() => {
     const controller = new AbortController()

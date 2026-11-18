@@ -27,3 +27,22 @@
   .atlas-map { height: 460px; }
   .region-map-label.leaflet-tooltip { font-size: 11px; }
 }
+
+.atlas-snow, .atlas-quality {
+  flex-basis: 100%;
+  justify-content: flex-start;
+  gap: 8px 12px;
+}
+.atlas-quality {
+  border-top: 1px solid #ffffff40;
+  padding-top: 12px;
+}
+.atlas-quality span {
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+.atlas-quality .smoke { background: #d5f6ff; color: #124b68; }
+.atlas-quality .powder { background: #e5ddff; color: #4b337a; }
+.atlas-quality .cement { background: #ffe5ba; color: #653d12; }
+.atlas-quality .mix { background: #dbe6f0; color: #263f56; }

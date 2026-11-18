@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './regions.css'
 
-export type MapRegion = { name: string; points: string; totals: (number | null)[]; floor: number; conditions: { text: string; warm: boolean }[]; boundary: L.LatLngTuple[] }
+export type MapRegion = { name: string; points: string; totals: (number | null)[]; floor: number; conditions: { text: string; qualities: SnowQuality[] }[]; boundary: L.LatLngTuple[] }
 
 export const boundaries = {
   '太平洋西北沿海山地': [[51.1,-124.2],[50.8,-122.4],[49.6,-121.25],[48.5,-120.65],[47.35,-120.7],[46.75,-121.4],[47.65,-122.05],[48.7,-122.35],[49.35,-123.1],[50.3,-123.85]],
@@ -19,6 +19,22 @@ export const boundaries = {
 } satisfies Record<string, L.LatLngTuple[]>
 
 const bounds = L.latLngBounds(Object.values(boundaries).flat())
+
+export const snowQuality = {
+  smoke: { name: 'Cold Smoke 超轻粉', mark: '✦' },
+  powder: { name: '普通粉', mark: '●' },
+  cement: { name: '水泥粉', mark: '■' },
+  mix: { name: '冰水混合', mark: '◆' },
+}
+export type SnowQuality = keyof typeof snowQuality
+
+const labelNames: Record<string, string> = {
+  '太平洋西北沿海山地': '太平洋西北',
+  '加拿大哥伦比亚山系': '哥伦比亚山系',
+  '加拿大落基山脉': '加拿大落基',
+  '蒙大拿麦迪逊山脉': '麦迪逊山脉',
+  '科罗拉多中部高地': '科罗拉多中部',
+}
 
 const scale = [
   { min: 40, color: '#168446', label: '≥40' },
@@ -49,10 +65,26 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       const picked = r.name === selected
       const shape = L.polygon(r.boundary, {
         color: '#233b37', weight: picked ? 4 : 2,
-        dashArray: r.conditions.some(c => c.warm) ? '5 3' : undefined,
         fillColor: color, fillOpacity: picked ? 0.82 : 0.64,
       }).addTo(layer).on('click', () => onSelect(r.name))
-      shape.bindTooltip(r.name + ' · ' + (r.floor < 0 ? '缺测' : r.floor.toFixed(1) + ' cm'), { sticky: true })
+      const qualities = new Set(r.conditions.flatMap(c => c.qualities))
+      const caption = document.createElement('div')
+      const title = document.createElement('strong')
+      title.textContent = labelNames[r.name] ?? r.name
+      const detail = document.createElement('span')
+      const marks = [...qualities].map(q => snowQuality[q].mark).join(' ')
+      detail.textContent = (r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm') + (marks ? '  ' + marks : '')
+      caption.append(title, detail)
+      const west = r.name === '加拿大哥伦比亚山系'
+      const east = r.name === '加拿大落基山脉'
+      shape.bindTooltip(caption, {
+        permanent: true, interactive: true, className: 'region-map-label',
+        direction: west ? 'left' : east ? 'right' : 'center',
+      })
+      shape.getTooltip()?.on('click', event => {
+        L.DomEvent.stopPropagation(event.originalEvent)
+        onSelect(r.name)
+      })
     }
     return () => { layer.remove() }
   }, [rows, selected, onSelect])
@@ -63,6 +95,6 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
   }, [boundary])
   return <div className="atlas"><div className="atlas-map" ref={container} aria-label="北美西部山地降雪地图" />
     <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>西部全景</button>
-    <div className="atlas-caption"><div><strong>{active?.name ?? '周累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '颜色取两个代表点的较低值（cm），边线为山系概略范围'}</small></div><div className="atlas-scale">{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}<span className="atlas-warm">虚线：湿化或回暖风险</span></div></div>
+    <div className="atlas-caption"><div><strong>{active?.name ?? '周累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '颜色取两个代表点的较低值（cm），边线为山系概略范围'}</small></div><div className="atlas-scale">{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality"><strong>雪质倾向</strong>{Object.values(snowQuality).map(q => <span key={q.mark}>{q.mark} {q.name}</span>)}</div></div>
   </div>
 }

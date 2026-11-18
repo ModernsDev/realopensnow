@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from 'react'
 
-import { RegionMap, boundaries } from './RegionMap'
+import { RegionMap, boundaries, snowQuality, type SnowQuality } from './RegionMap'
 
 const regions = [
   ['太平洋西北沿海山地', 'Whistler / Mount Baker', 50.06, -122.95, 48.86, -121.68],
@@ -16,26 +16,33 @@ const regions = [
 ] as const
 
 
-type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
+type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; rain_sum?: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
 
 function conditions(sample: Sample | undefined, week: number) {
-  if (!sample) return { text: '等待预报', warm: false }
+  if (!sample) return { text: '等待预报', qualities: [] }
   const start = week * 7
   const lows = sample.daily.temperature_2m_min?.slice(start, start + 7)
   const highs = sample.daily.temperature_2m_max?.slice(start, start + 7)
   const complete = (v: (number | null)[] | undefined): v is number[] =>
     v?.length === 7 && v.every(n => typeof n === 'number' && Number.isFinite(n))
   if (sample.daily_units.temperature_2m_min !== '°C' || sample.daily_units.temperature_2m_max !== '°C' ||
-    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', warm: false }
+    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', qualities: [] }
   const range = Math.min(...lows) + '～' + Math.max(...highs) + ' °C'
   const snow = sample.daily.snowfall_sum.slice(start, start + 7)
-  if (!complete(snow) || snow.some(n => n < 0)) return { text: range + ' · 新雪缺测', warm: false }
+  if (!complete(snow) || snow.some(n => n < 0)) return { text: range + ' · 新雪缺测', qualities: [] }
   const first = snow.findIndex(n => n > 0)
-  if (first < 0) return { text: range + ' · 无新增降雪', warm: false }
+  if (first < 0) return { text: range + ' · 无新增降雪', qualities: [] }
   const warmSnowDay = snow.some((n,i) => n > 0 && highs[i] > 0)
   const thaw = highs.slice(first + 1).some(n => n > 0)
-  return { warm: warmSnowDay || thaw, text: range + ' · ' + (warmSnowDay ? '降雪日有湿化风险' : '降雪日全天冰点以下或持平') +
-    (thaw ? ' · 后续有回暖风险' : '') }
+  const rain = sample.daily.rain_sum?.slice(start, start + 7)
+  const qualities = [...new Set(snow.flatMap((amount, i): SnowQuality[] => {
+    if (amount === 0) return []
+    if (sample.daily_units.rain_sum === 'mm' && (rain?.[i] ?? 0) > 0) return ['mix']
+    if (highs[i] <= -10) return ['smoke']
+    return [highs[i] <= -4 ? 'powder' : 'cement']
+  }))]
+  return { qualities, text: range + ' · ' + (warmSnowDay ? '降雪日有湿化风险' : '降雪日全天冰点以下或持平') +
+    (thaw ? ' · 后续有回暖风险' : '') + ' · ' + qualities.map(q => snowQuality[q].name).join(' / ') }
 }
 
 export const Regions = memo(function Regions() {
@@ -49,7 +56,7 @@ export const Regions = memo(function Regions() {
     const query = new URLSearchParams({
       latitude: regions.flatMap(r => [r[2], r[4]]).join(','),
       longitude: regions.flatMap(r => [r[3], r[5]]).join(','),
-      forecast_days: '14', daily: 'snowfall_sum,temperature_2m_min,temperature_2m_max', models: 'gfs_seamless', timezone: 'GMT',
+      forecast_days: '14', daily: 'snowfall_sum,rain_sum,temperature_2m_min,temperature_2m_max', models: 'gfs_seamless', timezone: 'GMT',
     })
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(25000)])
     fetch('https://api.open-meteo.com/v1/forecast?' + query, { signal, cache: 'no-store' })
@@ -91,7 +98,7 @@ export const Regions = memo(function Regions() {
       <h2>区域对比</h2>
       <p>按两个代表点中较低的周累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>
       <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>周气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
-      <p>雪质趋势按每日新雪与日最高气温推断。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
+      <p>雪质按降雪日最高温粗分，≤−10 °C 为超轻粉倾向，−10 至 −4 °C 为普通粉倾向，更暖为水泥粉倾向。同日预报有雨和雪时标为冰水混合倾向。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
     <h3>第 3–4 周</h3><p>美国区域可结合气温与降水距平概率筛选冷湿重叠区，再等第 2 周新雪预报确认。</p><a href="https://www.cpc.ncep.noaa.gov/products/predictions/WK34/">查看 NOAA 第 3–4 周展望</a>
   </section>
 })

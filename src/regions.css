@@ -6,8 +6,18 @@
 .week-period { min-width: 110px; text-align: center; }
 .week-period small { display: block; font-variant-numeric: tabular-nums; }
 
-.atlas-warm::before {
-  content: '';
-  width: 18px;
-  border-top: 2px dashed currentColor;
+ .atlas-quality { flex-basis: 100%; justify-content: flex-start; gap: 8px 16px; }
+.region-map-label.leaflet-tooltip {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: #112d37;
+  background: #fffffff2;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+}
+.region-map-label strong, .region-map-label span { display: block; }
+@media (max-width: 680px) {
+  .region-map-label.leaflet-tooltip { font-size: 9px; padding: 2px 3px; }
 }

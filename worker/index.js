@@ -7,7 +7,8 @@ const quota = 30
 
 async function api(request, env, url) {
   const [, , route, point] = url.pathname.split('/')
-  if (!points.has(point) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
+  const regional = route === 'quota' && point === 'regions'
+  if ((!regional && !points.has(point)) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
   if (request.method === 'GET' && route === 'forecast-snapshots') return snapshotHistory(env, point, url.searchParams)
   if (request.method === 'GET' && route === 'forecast-accuracy') return stationAccuracy(env, point)
   if (request.method !== 'POST') return new Response(null, { status: 405 })
@@ -23,8 +24,8 @@ async function api(request, env, url) {
   const slot = Math.floor(now / slotMs)
   try {
     const permit = await env.DB.prepare(
-      'INSERT INTO weather_quota (id, slot, count) VALUES (1, ?, 1) ON CONFLICT(id) DO UPDATE SET slot = excluded.slot, count = CASE WHEN weather_quota.slot < excluded.slot THEN 1 ELSE weather_quota.count + 1 END WHERE weather_quota.slot < excluded.slot OR (weather_quota.slot = excluded.slot AND weather_quota.count < ?)'
-    ).bind(slot, quota).run()
+      'INSERT INTO weather_quota (id, slot, count) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET slot = excluded.slot, count = CASE WHEN weather_quota.slot < excluded.slot THEN excluded.count ELSE weather_quota.count + excluded.count END WHERE weather_quota.slot < excluded.slot OR (weather_quota.slot = excluded.slot AND weather_quota.count + excluded.count <= ?)'
+    ).bind(slot, regional ? 11 : 1, quota).run()
     if (permit.meta.changes) {
       if (route === 'forecast-snapshots') return captureSnapshot(env, point)
       return new Response(null, { status: 204 })

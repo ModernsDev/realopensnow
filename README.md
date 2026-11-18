@@ -1,6 +1,6 @@
 # RealOpenSnow
 
-网页版雪场追踪原型。React、TypeScript、Vite，浏览器查询 Open-Meteo，公开版先经本站的配额门控。
+网页版雪场追踪原型。React、TypeScript、Vite，浏览器查询 Open-Meteo。
 
 ```sh
 npm install
@@ -24,7 +24,7 @@ npm run lint
 
 雪况区独立展示附近测站数据。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。雪道与缆车开放状态未知时链接运营方页面。
 
-历史预报与准确性位于查询点详情。点击「获取并保存快照」由 Worker 使用同一 Open-Meteo 查询配额获取并追加到 D1，历史可分页查看。快照保留模型值、获取时间、查询坐标、海拔、单位与当地有效日期。当前接口的模型起报时间为未知。首次保存前无本站快照。
+历史预报与准确性位于查询点详情。点击「获取并保存快照」由 Worker 从 Open-Meteo 获取并追加到 D1，历史可分页查看。快照保留模型值、获取时间、查询坐标、海拔、单位与当地有效日期。当前接口的模型起报时间为未知。首次保存前无本站快照。
 
 Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m）请求预报。仅以最近 30 个当地日期内相邻日测时间明确、整点到整点且恰好相隔 24 小时的直接新雪衡量误差，使用保存的完整小时降雪累计覆盖同一窗口。窗口开始前的快照按获取时间分七个 24 小时提前量档，每 UTC 六小时保留最后一个快照进入统计，每模型每档对同一窗口最多计一次。少于十个窗口标为样本不足。首次同址保存后须等可匹配的观测窗结束并上报，才会出现真实样本。
 
@@ -33,8 +33,8 @@ Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m
 正式站点为 `https://snow.moderns.dev`。通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
 
 
-公开站先向同域 Worker 申请查询额度，再由浏览器直连 Open-Meteo。服务只接受目录已有查询点，D1 通过单条原子写入限制全站每 15 分钟最多 30 次。滚动一分钟、小时、日、31 天最多放行 60、150、2,910、89,310 个 HTTP 请求；按每请求三模型保守计 180、450、8,730、267,930 次。免费端点限额见 [Open-Meteo 服务条款](https://open-meteo.com/en/terms)和[计量说明](https://open-meteo.com/en/pricing)。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。
+公开站由浏览器直接请求 Open-Meteo。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。
 
 客户端以数据获取时间起算六小时或雪场当地换日作为失效边界。刷新失败、限流和过期状态在预报、对比与雪报入口均有明确提示。
 
-Cloudflare Worker 日志按 `forecast_client_error` 查看浏览器报告的上游错误与限流，按 `forecast_quota` 查看站点限流与存储错误。
+Cloudflare Worker 日志按 `forecast_client_error` 查看浏览器报告的上游错误与限流。

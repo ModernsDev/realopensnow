@@ -67,11 +67,6 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
   const source = forecastSource(lat, lon, elevation, resort.timezone)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
-  if (hosted) {
-    const permit = await fetch(`/api/quota/${point.id}`, { method: 'POST', signal: requestSignal })
-    if (permit.status === 429) throw new Error('本站预报请求已限流（429），请稍后重试。')
-    if (!permit.ok) throw new Error(`预报服务暂不可用（${permit.status}）`)
-  }
   let data
   try {
     const response = await fetch(source, { cache: 'no-store', signal: requestSignal })

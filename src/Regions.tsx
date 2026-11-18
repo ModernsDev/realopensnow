@@ -31,14 +31,7 @@ export const Regions = memo(function Regions() {
       forecast_days: '14', daily: 'snowfall_sum', models: 'gfs_seamless', timezone: 'GMT',
     })
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(25000)])
-    async function load() {
-      if (import.meta.env.VITE_HOSTED_FORECAST === '1') {
-        const permit = await fetch('/api/quota/regions', { method: 'POST', signal })
-        if (!permit.ok) throw new Error(permit.status === 429 ? '本站预报额度已用完，请稍后刷新。' : '无法获取预报额度')
-      }
-      return fetch('https://api.open-meteo.com/v1/forecast?' + query, { signal })
-    }
-    load()
+    fetch('https://api.open-meteo.com/v1/forecast?' + query, { signal, cache: 'no-store' })
       .then(async response => {
         if (!response.ok) throw new Error('预报服务返回 ' + response.status)
         const data: Sample[] = await response.json()

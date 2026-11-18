@@ -2,13 +2,9 @@ import { assets, points } from './generated.js'
 import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
 import { captureSnapshot, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
 
-const slotMs = 15 * 60 * 1000
-const quota = 30
-
 async function api(request, env, url) {
   const [, , route, point] = url.pathname.split('/')
-  const regional = route === 'quota' && point === 'regions'
-  if ((!regional && !points.has(point)) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
+  if (!points.has(point) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
   if (request.method === 'GET' && route === 'forecast-snapshots') return snapshotHistory(env, point, url.searchParams)
   if (request.method === 'GET' && route === 'forecast-accuracy') return stationAccuracy(env, point)
   if (request.method !== 'POST') return new Response(null, { status: 405 })
@@ -19,23 +15,8 @@ async function api(request, env, url) {
     console.warn(JSON.stringify({ event: 'forecast_client_error', point, kind }))
     return new Response(null, { status: 204 })
   }
-  if (route !== 'quota' && route !== 'forecast-snapshots') return new Response(null, { status: 404 })
-  const now = Date.now()
-  const slot = Math.floor(now / slotMs)
-  try {
-    const permit = await env.DB.prepare(
-      'INSERT INTO weather_quota (id, slot, count) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET slot = excluded.slot, count = CASE WHEN weather_quota.slot < excluded.slot THEN excluded.count ELSE weather_quota.count + excluded.count END WHERE weather_quota.slot < excluded.slot OR (weather_quota.slot = excluded.slot AND weather_quota.count + excluded.count <= ?)'
-    ).bind(slot, regional ? 11 : 1, quota).run()
-    if (permit.meta.changes) {
-      if (route === 'forecast-snapshots') return captureSnapshot(env, point)
-      return new Response(null, { status: 204 })
-    }
-    console.warn(JSON.stringify({ event: 'forecast_quota', point, status: 429 }))
-    return new Response(null, { status: 429, headers: { 'retry-after': String(Math.ceil((slotMs - now % slotMs) / 1000)) } })
-  } catch (error) {
-    console.error(JSON.stringify({ event: 'forecast_quota', point, status: 503, reason: error.name }))
-    return new Response(null, { status: 503 })
-  }
+  if (route === 'forecast-snapshots') return captureSnapshot(env, point)
+  return new Response(null, { status: 404 })
 }
 
 export default {

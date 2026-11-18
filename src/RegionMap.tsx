@@ -37,11 +37,11 @@ const labelNames: Record<string, string> = {
 }
 
 const scale = [
-  { min: 40, color: '#168446', label: '≥40' },
-  { min: 15, color: '#8bb83e', label: '15–40' },
-  { min: 1, color: '#e6b53a', label: '1–15' },
-  { min: 0, color: '#d14842', label: '不足 1' },
-  { min: -1, color: '#818990', label: '缺测' },
+  { min: 40, color: '#168446', numberColor: '#71e99a', label: '≥40' },
+  { min: 15, color: '#8bb83e', numberColor: '#b8eb73', label: '15–40' },
+  { min: 1, color: '#e6b53a', numberColor: '#ffdb52', label: '1–15' },
+  { min: 0, color: '#d14842', numberColor: '#ff9390', label: '不足 1' },
+  { min: -1, color: '#818990', numberColor: '#ced7db', label: '缺测' },
 ]
 
 export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; selected: string | null; onSelect: (name: string | null) => void }) {
@@ -63,7 +63,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
     const layer = L.layerGroup().addTo(m)
     const labels: { anchor: L.LatLng; tooltip: L.Tooltip; leader: L.Polyline }[] = []
     for (const r of rows) {
-      const color = scale.find(s => r.floor >= s.min)!.color
+      const { color, numberColor } = scale.find(s => r.floor >= s.min)!
       const picked = r.name === selected
       const shape = L.polygon(r.boundary, {
         color: '#233b37', weight: picked ? 4 : 2,
@@ -75,6 +75,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       title.textContent = labelNames[r.name] ?? r.name
       const detail = document.createElement('span')
       detail.className = 'region-snow-total'
+      detail.style.color = numberColor
       detail.textContent = r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm'
       caption.append(title, detail)
       if (qualities.size) {

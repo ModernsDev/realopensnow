@@ -76,8 +76,17 @@ export const Regions = memo(function Regions() {
     const floor = totals.every(v => v !== null) ? Math.min(...totals) : -1
     return { name, points, totals, floor, conditions: [0, 1].map(j => conditions(samples?.[2 * i + j], week)), boundary: boundaries[name] }
   }).sort((a, b) => b.floor - a.floor)
-  return <section className="region-page"><div className="region-tools"><strong>{samples ? samples[0].daily.time[week * 7] + ' — ' + samples[0].daily.time[week * 7 + 6] : '北美山地'}</strong><div className="controls">
-    <label>移动窗口 <select value={week} onChange={e => select(Number(e.target.value))}><option value={0}>第 1 周</option><option value={1}>第 2 周</option></select></label>
+  const dates = samples?.[0].daily.time
+  return <section className="region-page"><div className="region-tools">
+    <div className="week-stepper" role="group" aria-label="预报周次">
+      <button aria-label="上一周" disabled={week === 0} onClick={() => select(0)}>‹</button>
+      <div className="week-period" aria-live="polite">
+        <strong>第 {week + 1} 周</strong>
+        {dates && <small>{dates[week * 7].slice(5)} — {dates[week * 7 + 6].slice(5)}</small>}
+      </div>
+      <button aria-label="下一周" disabled={week === 1} onClick={() => select(1)}>›</button>
+    </div>
+    <div className="controls">
     <button onClick={() => { setError(''); setSamples(undefined); refresh(revision + 1) }}>刷新预报</button></div></div>
     <RegionMap rows={rows} selected={selected} onSelect={setSelected} />
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>

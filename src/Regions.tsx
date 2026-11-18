@@ -3,7 +3,6 @@ import { memo, useEffect, useState } from 'react'
 import { RegionMap, boundaries } from './RegionMap'
 
 const regions = [
-  ['阿拉斯加南岸', 'Alyeska / Thompson Pass', 60.96, -149.08, 61.13, -145.73],
   ['太平洋西北沿海山地', 'Whistler / Mount Baker', 50.06, -122.95, 48.86, -121.68],
   ['内华达山脉', 'Palisades Tahoe / Mammoth', 39.19, -120.26, 37.64, -119.03],
   ['加拿大哥伦比亚山系', 'Revelstoke / Rogers Pass', 50.96, -118.16, 51.30, -117.52],
@@ -14,30 +13,29 @@ const regions = [
   ['俄勒冈胡德山', 'Timberline / Mt. Hood Meadows', 45.34, -121.71, 45.34, -121.67],
   ['瓦萨奇山脉', 'Alta / Brighton', 40.58, -111.64, 40.60, -111.58],
   ['科罗拉多中部高地', 'Copper / Breckenridge', 39.48, -106.16, 39.47, -106.10],
-  ['北部新英格兰', 'Stowe / Jay Peak', 44.53, -72.78, 44.93, -72.53],
 ] as const
 
 
 type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
 
 function conditions(sample: Sample | undefined, week: number) {
-  if (!sample) return '等待预报'
+  if (!sample) return { text: '等待预报', warm: false }
   const start = week * 7
   const lows = sample.daily.temperature_2m_min?.slice(start, start + 7)
   const highs = sample.daily.temperature_2m_max?.slice(start, start + 7)
   const complete = (v: (number | null)[] | undefined): v is number[] =>
     v?.length === 7 && v.every(n => typeof n === 'number' && Number.isFinite(n))
   if (sample.daily_units.temperature_2m_min !== '°C' || sample.daily_units.temperature_2m_max !== '°C' ||
-    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return '气温缺测'
+    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', warm: false }
   const range = Math.min(...lows) + '～' + Math.max(...highs) + ' °C'
   const snow = sample.daily.snowfall_sum.slice(start, start + 7)
-  if (!complete(snow) || snow.some(n => n < 0)) return range + ' · 新雪缺测'
+  if (!complete(snow) || snow.some(n => n < 0)) return { text: range + ' · 新雪缺测', warm: false }
   const first = snow.findIndex(n => n > 0)
-  if (first < 0) return range + ' · 无新增降雪'
+  if (first < 0) return { text: range + ' · 无新增降雪', warm: false }
   const warmSnowDay = snow.some((n,i) => n > 0 && highs[i] > 0)
   const thaw = highs.slice(first + 1).some(n => n > 0)
-  return range + ' · ' + (warmSnowDay ? '降雪日有湿化风险' : '降雪日全天冰点以下或持平') +
-    (thaw ? ' · 后续有回暖风险' : '')
+  return { warm: warmSnowDay || thaw, text: range + ' · ' + (warmSnowDay ? '降雪日有湿化风险' : '降雪日全天冰点以下或持平') +
+    (thaw ? ' · 后续有回暖风险' : '') }
 }
 
 export const Regions = memo(function Regions() {
@@ -92,7 +90,7 @@ export const Regions = memo(function Regions() {
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
       <h2>区域对比</h2>
       <p>按两个代表点中较低的周累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>
-      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>周气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c}</div>)}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>周气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
       <p>雪质趋势按每日新雪与日最高气温推断。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
     <h3>第 3–4 周</h3><p>美国区域可结合气温与降水距平概率筛选冷湿重叠区，再等第 2 周新雪预报确认。</p><a href="https://www.cpc.ncep.noaa.gov/products/predictions/WK34/">查看 NOAA 第 3–4 周展望</a>
   </section>

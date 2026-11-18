@@ -42,12 +42,25 @@
   padding: 4px 8px;
   font-weight: 600;
 }
-.atlas-quality .powder { background: #d4f5df; color: #145631; }
-.atlas-quality .cement { background: #ffe5ba; color: #653d12; }
-.atlas-quality .mix { background: #ffd9db; color: #862a32; }
 
 .region-snow-total {
-  border-bottom: 3px solid;
+  background: #153943;
+  color: #ffdb52;
+  border-radius: 3px;
   font-weight: 700;
 }
 .region-quality-status { margin-top: 2px; }
+.atlas-quality .snow-quality-icon, .region-quality-status .snow-quality-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 4px;
+  background: #fff;
+  font: bold 13px/1 system-ui;
+}
+.region-quality-status .snow-quality-icon + .snow-quality-icon { margin-left: 2px; }
+.snow-quality-icon.powder { color: #168446; }
+.snow-quality-icon.cement { color: #ab5808; }
+.snow-quality-icon.mix { color: #c22b3d; }

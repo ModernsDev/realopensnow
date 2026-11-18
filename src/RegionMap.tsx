@@ -21,9 +21,9 @@ export const boundaries = {
 const bounds = L.latLngBounds(Object.values(boundaries).flat())
 
 export const snowQuality = {
-  powder: { name: '普通粉', mark: '🌨️' },
-  cement: { name: '水泥粉', mark: '💧' },
-  mix: { name: '冰水混合', mark: '🌧️' },
+  powder: { name: '普通粉', mark: '❄' },
+  cement: { name: '水泥粉', mark: '●' },
+  mix: { name: '冰水混合', mark: '☂' },
 }
 export type SnowQuality = keyof typeof snowQuality
 
@@ -75,13 +75,17 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       title.textContent = labelNames[r.name] ?? r.name
       const detail = document.createElement('span')
       detail.className = 'region-snow-total'
-      detail.style.borderColor = color
       detail.textContent = r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm'
       caption.append(title, detail)
       if (qualities.size) {
         const status = document.createElement('span')
         status.className = 'region-quality-status'
-        status.textContent = [...qualities].map(q => snowQuality[q].mark).join(' ')
+        for (const quality of qualities) {
+          const icon = document.createElement('i')
+          icon.className = 'snow-quality-icon ' + quality
+          icon.textContent = snowQuality[quality].mark
+          status.append(icon)
+        }
         status.title = [...qualities].map(q => snowQuality[q].name).join('、')
         caption.append(status)
       }
@@ -134,6 +138,6 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
   }, [boundary])
   return <div className="atlas"><div className="atlas-map" ref={container} aria-label="北美西部山地降雪地图" />
     <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>西部全景</button>
-    <div className="atlas-caption"><div><strong>{active?.name ?? '周累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '颜色取两个代表点的较低值（cm），边线为山系概略范围'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="周累计新雪"><strong>周累计新雪（cm）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span className={kind} key={kind}>{q.mark} {q.name}</span>)}</div></div>
+    <div className="atlas-caption"><div><strong>{active?.name ?? '周累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '颜色取两个代表点的较低值（cm），边线为山系概略范围'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="周累计新雪"><strong>周累计新雪（cm）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
   </div>
 }

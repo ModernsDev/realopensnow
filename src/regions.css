@@ -21,3 +21,9 @@
 @media (max-width: 680px) {
   .region-map-label.leaflet-tooltip { font-size: 9px; padding: 2px 3px; }
 }
+
+.region-map-label.leaflet-tooltip { opacity: 1 !important; }
+@media (max-width: 680px) {
+  .atlas-map { height: 460px; }
+  .region-map-label.leaflet-tooltip { font-size: 11px; }
+}

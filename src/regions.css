@@ -42,7 +42,12 @@
   padding: 4px 8px;
   font-weight: 600;
 }
-.atlas-quality .smoke { background: #d5f6ff; color: #124b68; }
-.atlas-quality .powder { background: #e5ddff; color: #4b337a; }
+.atlas-quality .powder { background: #d4f5df; color: #145631; }
 .atlas-quality .cement { background: #ffe5ba; color: #653d12; }
-.atlas-quality .mix { background: #dbe6f0; color: #263f56; }
+.atlas-quality .mix { background: #ffd9db; color: #862a32; }
+
+.region-snow-total {
+  border-bottom: 3px solid;
+  font-weight: 700;
+}
+.region-quality-status { margin-top: 2px; }

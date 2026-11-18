@@ -38,7 +38,6 @@ function conditions(sample: Sample | undefined, week: number) {
   const qualities = [...new Set(snow.flatMap((amount, i): SnowQuality[] => {
     if (amount === 0) return []
     if (sample.daily_units.rain_sum === 'mm' && (rain?.[i] ?? 0) > 0) return ['mix']
-    if (highs[i] <= -10) return ['smoke']
     return [highs[i] <= -4 ? 'powder' : 'cement']
   }))]
   return { qualities, text: range + ' · ' + (warmSnowDay ? '降雪日有湿化风险' : '降雪日全天冰点以下或持平') +
@@ -98,7 +97,7 @@ export const Regions = memo(function Regions() {
       <h2>区域对比</h2>
       <p>按两个代表点中较低的周累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>
       <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>周气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
-      <p>雪质按降雪日最高温粗分，≤−10 °C 为超轻粉倾向，−10 至 −4 °C 为普通粉倾向，更暖为水泥粉倾向。同日预报有雨和雪时标为冰水混合倾向。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
+      <p>雪质按降雪日最高温粗分，最高温不超过 −4 °C 为普通粉倾向，更暖为水泥粉倾向。同日预报有雨和雪时标为冰水混合倾向。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
     <h3>第 3–4 周</h3><p>美国区域可结合气温与降水距平概率筛选冷湿重叠区，再等第 2 周新雪预报确认。</p><a href="https://www.cpc.ncep.noaa.gov/products/predictions/WK34/">查看 NOAA 第 3–4 周展望</a>
   </section>
 })

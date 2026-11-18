@@ -21,7 +21,6 @@ export const boundaries = {
 const bounds = L.latLngBounds(Object.values(boundaries).flat())
 
 export const snowQuality = {
-  smoke: { name: 'Cold Smoke 超轻粉', mark: '❄️' },
   powder: { name: '普通粉', mark: '🌨️' },
   cement: { name: '水泥粉', mark: '💧' },
   mix: { name: '冰水混合', mark: '🌧️' },
@@ -75,10 +74,17 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       const title = document.createElement('strong')
       title.textContent = labelNames[r.name] ?? r.name
       const detail = document.createElement('span')
-      const marks = [...qualities].map(q => snowQuality[q].mark).join(' ')
-      detail.textContent = (r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm') + (marks ? '  ' + marks : '')
+      detail.className = 'region-snow-total'
+      detail.style.borderColor = color
+      detail.textContent = r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm'
       caption.append(title, detail)
-      detail.title = [...qualities].map(q => snowQuality[q].name).join('、')
+      if (qualities.size) {
+        const status = document.createElement('span')
+        status.className = 'region-quality-status'
+        status.textContent = [...qualities].map(q => snowQuality[q].mark).join(' ')
+        status.title = [...qualities].map(q => snowQuality[q].name).join('、')
+        caption.append(status)
+      }
       const anchor = shape.getCenter()
       const tooltip = L.tooltip({
         permanent: true, interactive: true, className: 'region-map-label', direction: 'center',

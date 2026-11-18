@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from 'react'
 
-import { RegionMap, type MapRegion } from './RegionMap'
+import { RegionMap, boundaries } from './RegionMap'
 
 const regions = [
   ['阿拉斯加南岸', 'Alyeska / Thompson Pass', 60.96, -149.08, 61.13, -145.73],
@@ -13,7 +13,6 @@ const regions = [
   ['北部新英格兰', 'Stowe / Jay Peak', 44.53, -72.78, 44.93, -72.53],
 ] as const
 
-const centers: MapRegion['center'][] = regions.map(r => [(r[2] + r[4]) / 2, (r[3] + r[5]) / 2])
 
 type Sample = { daily_units: { snowfall_sum: string }; daily: { time: string[]; snowfall_sum: (number | null)[] } }
 
@@ -51,12 +50,12 @@ export const Regions = memo(function Regions() {
         ? days.reduce<number>((a, b) => a + b!, 0) : null
     })
     const floor = totals.every(v => v !== null) ? Math.min(...totals) : -1
-    return { name, points, totals, floor, center: centers[i] }
+    return { name, points, totals, floor, boundary: boundaries[name] }
   }).sort((a, b) => b.floor - a.floor)
   return <section className="region-page"><div className="region-tools"><strong>{samples ? samples[0].daily.time[week * 7] + ' — ' + samples[0].daily.time[week * 7 + 6] : '北美山地'}</strong><div className="controls">
     <label>移动窗口 <select value={week} onChange={e => select(Number(e.target.value))}><option value={0}>第 1 周</option><option value={1}>第 2 周</option></select></label>
     <button onClick={() => { setError(''); setSamples(undefined); refresh(revision + 1) }}>刷新预报</button></div></div>
-    <RegionMap centers={centers} rows={rows} selected={selected} onSelect={setSelected} />
+    <RegionMap rows={rows} selected={selected} onSelect={setSelected} />
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
       <h2>区域对比</h2>
       <p>按两个代表点中较低的周累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>

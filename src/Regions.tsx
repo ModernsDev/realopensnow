@@ -18,23 +18,31 @@ const regions = [
 
 type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; rain_sum?: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
 
-function conditions(sample: Sample | undefined, week: number) {
+const periods = [
+  ['今天', 0, 1],
+  ['明天', 1, 2],
+  ['后天', 2, 3],
+  ['未来 7 天', 0, 7],
+  ['未来 14 天', 0, 14],
+  ['第 8–14 天', 7, 14],
+] as const
+
+function conditions(sample: Sample | undefined, start: number, end: number) {
   if (!sample) return { text: '等待预报', qualities: [] }
-  const start = week * 7
-  const lows = sample.daily.temperature_2m_min?.slice(start, start + 7)
-  const highs = sample.daily.temperature_2m_max?.slice(start, start + 7)
+  const lows = sample.daily.temperature_2m_min?.slice(start, end)
+  const highs = sample.daily.temperature_2m_max?.slice(start, end)
   const complete = (v: (number | null)[] | undefined): v is number[] =>
-    v?.length === 7 && v.every(n => typeof n === 'number' && Number.isFinite(n))
+    v?.length === end - start && v.every(n => typeof n === 'number' && Number.isFinite(n))
   if (sample.daily_units.temperature_2m_min !== '°C' || sample.daily_units.temperature_2m_max !== '°C' ||
     !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', qualities: [] }
   const range = Math.min(...lows) + '～' + Math.max(...highs) + ' °C'
-  const snow = sample.daily.snowfall_sum.slice(start, start + 7)
+  const snow = sample.daily.snowfall_sum.slice(start, end)
   if (!complete(snow) || snow.some(n => n < 0)) return { text: range + ' · 新雪缺测', qualities: [] }
   const first = snow.findIndex(n => n > 0)
   if (first < 0) return { text: range + ' · 无新增降雪', qualities: [] }
   const warmSnowDay = snow.some((n,i) => n > 0 && highs[i] > 0)
   const thaw = highs.slice(first + 1).some(n => n > 0)
-  const rain = sample.daily.rain_sum?.slice(start, start + 7)
+  const rain = sample.daily.rain_sum?.slice(start, end)
   const qualities = [...new Set(snow.flatMap((amount, i): SnowQuality[] => {
     if (amount === 0) return []
     if (sample.daily_units.rain_sum === 'mm' && (rain?.[i] ?? 0) > 0) return ['mix']
@@ -49,7 +57,8 @@ export const Regions = memo(function Regions() {
   const [samples, setSamples] = useState<Sample[]>()
   const [error, setError] = useState('')
   const [revision, refresh] = useState(0)
-  const [week, select] = useState(1)
+  const [period, select] = useState(3)
+  const [, start, end] = periods[period]
   useEffect(() => {
     const controller = new AbortController()
     const query = new URLSearchParams({
@@ -73,31 +82,31 @@ export const Regions = memo(function Regions() {
   }, [revision])
   const rows = regions.map(([name, points], i) => {
     const totals = [0, 1].map(j => {
-      const days = samples?.[2 * i + j].daily.snowfall_sum.slice(week * 7, week * 7 + 7)
-      return days?.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)
+      const days = samples?.[2 * i + j].daily.snowfall_sum.slice(start, end)
+      return days?.length === end - start && days.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)
         ? days.reduce<number>((a, b) => a + b!, 0) : null
     })
     const floor = totals.every(v => v !== null) ? Math.min(...totals) : -1
-    return { name, points, totals, floor, conditions: [0, 1].map(j => conditions(samples?.[2 * i + j], week)), boundary: boundaries[name] }
+    return { name, points, totals, floor, conditions: [0, 1].map(j => conditions(samples?.[2 * i + j], start, end)), boundary: boundaries[name] }
   }).sort((a, b) => b.floor - a.floor)
   const dates = samples?.[0].daily.time
   return <section className="region-page"><div className="region-tools">
-    <div className="week-stepper" role="group" aria-label="预报周次">
-      <button aria-label="上一周" disabled={week === 0} onClick={() => select(0)}>‹</button>
-      <div className="week-period" aria-live="polite">
-        <strong>第 {week + 1} 周</strong>
-        {dates && <small>{dates[week * 7].slice(5)} — {dates[week * 7 + 6].slice(5)}</small>}
-      </div>
-      <button aria-label="下一周" disabled={week === 1} onClick={() => select(1)}>›</button>
+    <div className="forecast-periods" role="group" aria-label="预报时段">
+      {periods.map(([label], index) => (
+        <button key={label} aria-pressed={period === index} onClick={() => select(index)}>{label}</button>
+      ))}
     </div>
+    {dates && <small aria-live="polite">
+      {dates[start].slice(5)}{end - start > 1 && ' — ' + dates[end - 1].slice(5)} · UTC
+    </small>}
     <div className="controls">
     <button onClick={() => { setError(''); setSamples(undefined); refresh(revision + 1) }}>刷新预报</button></div></div>
     <RegionMap rows={rows} selected={selected} onSelect={setSelected} />
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
       <h2>区域对比</h2>
-      <p>按两个代表点中较低的周累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>
-      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>周气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
-      <p>雪质按降雪日最高温粗分，最高温不超过 −4 °C 为普通粉倾向，更暖为水泥粉倾向。同日预报有雨和雪时标为冰水混合倾向。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。周温差取七天最低至最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
+      <p>按两个代表点中较低的累计新雪排序。两点都看好时，可优先核查该区；点间差距大时，需细看目的地。第 2 周仅供初筛。</p>
+      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
+      <p>雪质按降雪日最高温粗分，最高温不超过 −4 °C 为普通粉倾向，更暖为水泥粉倾向。同日预报有雨和雪时标为冰水混合倾向。降雪日最高温超过 0 °C 提示湿化风险，首次降雪后的日最高温超过 0 °C 提示回暖风险。气温范围取所选时段的最低与最高气温，实际雪面还受风、日照和海拔影响。GFS 单模型 · UTC 日界 · 代表坐标按模型地形估算。相邻点可能落在同一网格。</p></>}
     <h3>第 3–4 周</h3><p>美国区域可结合气温与降水距平概率筛选冷湿重叠区，再等第 2 周新雪预报确认。</p><a href="https://www.cpc.ncep.noaa.gov/products/predictions/WK34/">查看 NOAA 第 3–4 周展望</a>
   </section>
 })

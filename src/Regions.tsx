@@ -1,5 +1,7 @@
 import { memo, useEffect, useState } from 'react'
 
+import { PeriodPicker } from './PeriodPicker'
+import { defaultPeriod, forecastPeriods } from './weather'
 import { RegionMap, boundaries, snowQuality, type SnowQuality } from './RegionMap'
 
 const regions = [
@@ -17,16 +19,6 @@ const regions = [
 
 
 type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; rain_sum?: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
-
-const periods = [
-  ['今天', 0, 1],
-  ['明天', 1, 2],
-  ['后天', 2, 3],
-  ['未来 3 天', 0, 3],
-  ['未来 7 天', 0, 7],
-  ['未来 14 天', 0, 14],
-  ['第 8–14 天', 7, 14],
-] as const
 
 function conditions(sample: Sample | undefined, start: number, end: number) {
   if (!sample) return { text: '等待预报', qualities: [] }
@@ -58,8 +50,8 @@ export const Regions = memo(function Regions() {
   const [samples, setSamples] = useState<Sample[]>()
   const [error, setError] = useState('')
   const [revision, refresh] = useState(0)
-  const [period, select] = useState(4)
-  const [, start, end] = periods[period]
+  const [period, select] = useState(defaultPeriod)
+  const [, start, end] = forecastPeriods[period]
   useEffect(() => {
     const controller = new AbortController()
     const query = new URLSearchParams({
@@ -92,11 +84,7 @@ export const Regions = memo(function Regions() {
   }).sort((a, b) => b.floor - a.floor)
   const dates = samples?.[0].daily.time
   return <section className="region-page"><div className="region-tools">
-    <div className="forecast-periods" role="group" aria-label="预报时段">
-      {periods.map(([label], index) => (
-        <button key={label} aria-pressed={period === index} onClick={() => select(index)}>{label}</button>
-      ))}
-    </div>
+    <PeriodPicker period={period} onSelect={select} />
     {dates && <small aria-live="polite">
       {dates[start].slice(5)}{end - start > 1 && ' — ' + dates[end - 1].slice(5)}
     </small>}

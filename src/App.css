@@ -81,6 +81,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 .controls label { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
+.detail-periods { padding: 16px 24px 0; }
 .forecast-context { padding: 18px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .model-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 24px 0; padding: 0; }
 .model-totals.simple { grid-template-columns: minmax(0, 1fr); }
@@ -106,7 +107,6 @@ main { padding-block: 24px 32px; min-width: 0; }
 .chart.days-14 .day > span { font-size: 11px; white-space: nowrap; }
 tr.past > * { color: var(--muted); }
 tr.today > * { border-top: 2px solid var(--blue); }
-.chart-heading .mode-switch button { font-size: 13px; min-height: 32px; padding-block: 4px; }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
 .bar-column { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
@@ -215,6 +215,7 @@ td:first-child, th:first-child { text-align: left; }
   .model-totals { margin-inline: 16px; }
   .model-totals > div { padding: 4px 8px 4px 10px; }
   .model-totals strong { font-size: 25px; }
+  .detail-periods { padding-inline: 16px; }
   .controls { width: 100%; }
   .controls select[aria-label="海拔"] { flex: 1; width: 0; }
   .controls label:has([aria-label="海拔"]) { flex-basis: 100%; }

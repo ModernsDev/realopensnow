@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, pastDates, forecastDates, forecastExpired, forecast, models, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, pastDates, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -131,4 +131,20 @@ test('weighted blend uses fixed weights, renormalizes over available models and 
   assert.deepEqual(data.dates.map((_, i) => value(data, 'snowfall_sum', 'weighted', i)), [20, 30, null, 0])
   assert.deepEqual(spread(data, 'snowfall_sum', 0), { low: 10, high: 40 })
   assert.equal(spread(data, 'snowfall_sum', 2), null)
+})
+
+test('periods beyond a model horizon stay missing while nearer periods keep complete totals', () => {
+  const raw = hours('2026-11-17T08:00:00Z', 14 * 24)
+  raw.hourly.snowfall_icon_seamless.fill(null, 1 + 7 * 24 + 1)
+  const dates = forecastDates('2026-11-17T17:00:00Z', raw.timezone, 14)
+  const data = { dates, ...aggregateHourly(raw, dates, raw.timezone) } as Forecast
+  const week = slicePeriod(data, 0, 7)
+  assert.ok(Math.abs(total(week, 'icon_seamless')! - 7 * 24 * 2.54) < 1e-9)
+  assert.equal(week.modelStatus.icon_seamless, '数据完整')
+  assert.equal(total(data, 'icon_seamless'), null)
+  const second = slicePeriod(data, 7, 14)
+  assert.deepEqual(second.dates, dates.slice(7))
+  assert.equal(total(second, 'icon_seamless'), null)
+  assert.ok(Math.abs(total(second, 'gfs_seamless')! - 7 * 24 * 2.54) < 1e-9)
+  assert.ok(Math.abs(total(slicePeriod(data, 1, 2), 'icon_seamless')! - 24 * 2.54) < 1e-9)
 })

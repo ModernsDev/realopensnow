@@ -1,13 +1,14 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
 import { compareForecasts } from './compareForecasts'
-import { fixed, models, snow, weighted, weightLabel, type Forecast } from './weather'
+import { fixed, models, snow, weighted, weightLabel, type Forecast, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, model, setModel, unit, setUnit, refresh }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, setUnit, refresh }: {
   candidates: Candidate[]
   selected: string[]
   onToggle: (id: string) => void
+  weights: Weights
   model: string
   setModel: (model: string) => void
   unit: string
@@ -70,7 +71,7 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
             </tbody>
           </table>
         </div>
-        {model === weighted.id && <p className="muted">加权综合 = {weightLabel}；缺一模型时其余权重按比例放大，不足两个模型视为缺失。</p>}
+        {model === weighted.id && <p className="muted">加权综合 = {weightLabel(weights)} · <a href="#settings">修改权重</a>。部分模型缺测时其余权重按比例放大；启用两个及以上模型时，可用模型不足两个视为缺失。</p>}
         <p className="muted">按当前模型的窗口累计降雪从高到低排列。窗口取已返回预报的日期交集，窗口内降雪、气温或阵风有缺失的雪场不参与排名。</p>
       </>}
     </> : <p className="empty">{candidates.length < 2 ? '请先收藏至少两个雪场。' : '请选择至少两个收藏雪场开始对比。'}</p>}

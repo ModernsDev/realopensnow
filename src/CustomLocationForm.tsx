@@ -43,7 +43,6 @@ export function CustomLocationForm({ onAdd, onCancel }: { onAdd: (location: Cust
       <label>海拔（米，可选）<input type="number" min="-500" max="9000" step="1" value={elevation} onChange={e => setElevation(e.target.value)} /><small>留空时按坐标自动获取地形海拔。</small></label>
       {error && <p role="alert" className="error">{error}</p>}
       <div className="field-row"><button className="primary" type="submit" disabled={busy}>{busy ? '正在查询海拔与时区…' : '添加地点'}</button><button type="button" onClick={onCancel}>取消</button></div>
-      <p className="muted">地点保存在本机浏览器。坐标会发送给 Open-Meteo 以获取海拔、时区和预报。</p>
     </form>
   </section>
 }

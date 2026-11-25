@@ -23,7 +23,7 @@ export type Forecast = {
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
 export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights'>
-export type ForecastWithReport = Forecast & { past: DailySeries; report: ReturnType<typeof dailyReport>; reportGenerated: string }
+export type ForecastWithReport = Forecast & { past: DailySeries; report: ReturnType<typeof dailyReport> }
 const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
@@ -85,7 +85,7 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
       })
     }
     const fields = Object.entries(daily).filter(([key]) => key.endsWith(`_${model.id}`)).flatMap(([, values]) => values)
-    modelStatus[model.id] = fields.every(v => v !== null) ? '七日完整' : fields.some(v => v !== null) ? '部分缺失（含小时缺测或单位异常），— 不参与完整周期总量' : '不可用（缺测或单位异常）'
+    modelStatus[model.id] = fields.every(v => v !== null) ? '七日完整' : fields.some(v => v !== null) ? '部分缺失' : '不可用'
   }
   return { daily, modelStatus }
 }
@@ -121,7 +121,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
   const report = dailyReport(batch, resort)
-  return { ...batch, past, report, reportGenerated: new Date().toISOString() }
+  return { ...batch, past, report }
 }
 
 export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string): Forecast {

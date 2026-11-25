@@ -1,5 +1,3 @@
-import { resorts, sources, waterburyPoint } from './catalog.ts'
-
 const hour = 60 * 60 * 1000
 const stationOffset = '-08:00'
 const japanOffset = '+09:00'
@@ -7,41 +5,25 @@ const awdb = 'https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data'
 const amedas = 'https://www.jma.go.jp/bosai/amedas/data'
 
 type Station = {
-  name: string
-  elevation: number | null
-  source: string
-  url: string
-  terms: string
   triplet?: string
   provider: 'snotel' | 'amedas' | 'cocorahs'
   maxAgeHours: number
 }
 
-function snotel(resortId: string, stationId: string, name: string, stationNumber: number, sourceId: string): Station {
-  const point = resorts.find(resort => resort.id === resortId)!.points.find(point => point.id === stationId)!
-  return { name, elevation: point.elevation.value, provider: 'snotel', maxAgeHours: 3, source: '美国农业部自然资源保护局（USDA NRCS） · AWDB', url: sources[sourceId].url, terms: sources[sourceId].licenseUrl!, triplet: `${stationNumber}:UT:SNTL` }
+function snotel(stationNumber: number): Station {
+  return { provider: 'snotel', maxAgeHours: 3, triplet: `${stationNumber}:UT:SNTL` }
 }
 
 export const observationStations: Record<string, Station | undefined> = {
-  alta: snotel('alta', 'alta-atwater-1308', 'Atwater SNOTEL 1308', 1308, 'atwater'),
-  snowbird: snotel('snowbird', 'snowbird-snotel-766', 'Snowbird SNOTEL 766', 766, 'snowbirdStation'),
+  alta: snotel(1308),
+  snowbird: snotel(766),
   niseko: {
     provider: 'amedas',
     maxAgeHours: 3,
-    name: '倶知安（Kutchan）AMeDAS 16217',
-    elevation: 176,
-    source: '日本气象厅（JMA） · AMeDAS',
-    url: 'https://www.jma.go.jp/bosai/amedas/#area_type=offices&area_code=016000&amdno=16217&format=table&elems=snow',
-    terms: 'https://www.jma.go.jp/jma/kishou/info/coment.html',
   },
   stowe: {
     provider: 'cocorahs',
     maxAgeHours: 30,
-    name: 'Waterbury 3.0 NW · CoCoRaHS VT-WS-19',
-    elevation: waterburyPoint.elevation.value,
-    source: 'CoCoRaHS · 每日观测',
-    url: 'https://dex.cocorahs.org/stations/VT-WS-19/obs-tables',
-    terms: 'https://www.cocorahs.org/content.aspx?page=datausagepolicy',
   },
 }
 

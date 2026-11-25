@@ -8,7 +8,16 @@
 .topbar nav button:hover { color: var(--ink); background: none; }
 .topbar nav button.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 10px; }
-.actions input { width: 190px; }
+.search { position: relative; }
+.search input { width: 240px; }
+.suggestions { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: min(360px, calc(100vw - 32px)); margin: 0; padding: 6px; list-style: none; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 10px 30px rgb(20 43 61 / .14); }
+.suggestions li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.suggestions li[aria-selected="true"] { background: var(--ice); }
+.suggestions li span:first-child { display: grid; min-width: 0; }
+.suggestions strong { font-weight: 600; overflow-wrap: anywhere; }
+.suggestions small { color: var(--muted); }
+.suggestions .saved { color: var(--gold); font-size: 18px; }
+.suggestions .none { color: var(--muted); cursor: default; }
 .actions button { white-space: nowrap; }
 button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
 button.primary:hover:not(:disabled) { background: var(--blue-dark); }
@@ -56,6 +65,12 @@ main { padding-block: 24px 32px; min-width: 0; }
 
 .detail-header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .detail-header h2 { font-size: 28px; margin: 0; }
+.detail-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.title-star { flex: none; display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; color: #8aa0b0; }
+.title-star:hover:not(:disabled) { background: var(--ice); color: var(--gold); }
+.title-star svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.title-star.saved { color: var(--gold); }
+.title-star.saved svg { fill: currentColor; }
 .detail-header h2, .report, .empty { overflow-wrap: anywhere; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; font-size: 14px; }
 .mode-switch { display: inline-flex; }
@@ -83,8 +98,15 @@ main { padding-block: 24px 32px; min-width: 0; }
 .legend span { display: flex; gap: 6px; align-items: center; }
 .chart-scroll { overflow-x: auto; }
 .chart { margin: 18px 24px 24px; display: flex; gap: 18px; }
-.chart-long { min-width: 1260px; gap: 14px; }
-.day { flex: 1; max-width: 180px; min-width: 0; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day { flex: 1; min-width: 0; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day.past .bar-column div { opacity: .45; }
+.day.today { position: relative; }
+.day.today::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; border-left: 2px dashed var(--line-strong); }
+.day.today em { position: absolute; left: -5px; top: -2px; font-size: 11px; font-style: normal; color: var(--blue); }
+.chart.days-14 { gap: 10px; }
+.chart.days-14 .day > span { font-size: 11px; white-space: nowrap; }
+tr.past > * { color: var(--muted); }
+tr.today > * { border-top: 2px solid var(--blue); }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
 .bar-column { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
@@ -170,7 +192,9 @@ td:first-child, th:first-child { text-align: left; }
   .weight-row output { grid-column: 2 / -1; }
   .topbar nav button { padding: 0 4px; font-size: 14px; }
   .actions { width: 100%; margin-top: 10px; }
-  .actions input { flex: 1; min-width: 0; width: 0; font-size: 16px; }
+  .actions .search { flex: 1 0 100%; min-width: 0; }
+  .suggestions { left: 0; right: auto; width: 100%; }
+  .actions .search input { width: 100%; font-size: 16px; }
   .page-head { min-height: 290px; }
   .snow-mountain { top: 92px; height: auto; }
   .snow-mountain::after { background: linear-gradient(to top, var(--snow), transparent 18%); }
@@ -195,7 +219,7 @@ td:first-child, th:first-child { text-align: left; }
   .controls { width: 100%; }
   .controls select[aria-label="海拔"] { flex: 1; width: 0; }
   .controls label:has([aria-label="海拔"]) { flex-basis: 100%; }
-  .chart { margin-inline: 16px; }
-  .chart:not(.chart-long) { min-width: 560px; }
+  .chart { min-width: 560px; margin-inline: 16px; }
+  .chart.days-14 { min-width: 860px; }
   .error button { display: block; margin: 10px 0 0; }
 }

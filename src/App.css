@@ -50,11 +50,6 @@ main { padding-block: 24px 32px; min-width: 0; }
 .resort .star { flex: none; border: 0; background: none; padding: 4px 8px; font-size: 22px; color: #718899; }
 .resort .star.saved { color: var(--gold); }
 
-.list-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
-.list-filter select { min-width: 0; flex: 1; font-size: 14px; color: var(--ink); }
-.list-filter span { white-space: nowrap; }
-.more { width: 100%; margin-top: 10px; }
-.resort-list:has(.list-filter) { max-height: calc(100vh - 48px); overflow-y: auto; position: sticky; top: 16px; padding-right: 4px; }
 .custom-form { padding: 24px; }
 .custom-form form { display: grid; gap: 18px; max-width: 520px; }
 .custom-form label { display: grid; gap: 6px; font-weight: 500; }
@@ -66,10 +61,11 @@ main { padding-block: 24px 32px; min-width: 0; }
 .detail-header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .detail-header h2 { font-size: 28px; margin: 0; }
 .detail-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.title-star { flex: none; display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; color: #8aa0b0; }
+.title-star { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 4px 12px 4px 8px; border: 1px solid var(--line-strong); border-radius: 18px; background: var(--panel); color: #6d8494; font-size: 15px; }
+.title-star span { color: var(--ink); }
 .title-star:hover:not(:disabled) { background: var(--ice); color: var(--gold); }
-.title-star svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.title-star.saved { color: var(--gold); }
+.title-star svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.title-star.saved { color: var(--gold); border-color: #e0c98f; background: #fdf7e8; }
 .title-star.saved svg { fill: currentColor; }
 .detail-header h2, .report, .empty { overflow-wrap: anywhere; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; font-size: 14px; }
@@ -202,10 +198,7 @@ td:first-child, th:first-child { text-align: left; }
   main { padding-top: 16px; }
   .workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .resort-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
-  .resort-list:has(.list-filter) { position: static; flex-wrap: wrap; max-height: 55vh; padding-right: 0; }
-  .resort-list:has(.list-filter) .resort { flex: 1 0 100%; }
   .workspace:has(.custom-form) .resort-list { display: none; }
-  .list-filter { flex: 1 0 100%; margin-bottom: 0; }
   .actions { flex-wrap: wrap; }
   .resort { flex: 0 0 220px; background: var(--panel); border: 1px solid var(--line); }
   .resort + .resort { margin-top: 0; }

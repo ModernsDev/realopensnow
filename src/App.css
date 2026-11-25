@@ -37,6 +37,8 @@ main { padding-block: 24px 32px; min-width: 0; }
 .resort-select strong { font-size: 18px; font-weight: 600; }
 .resort.selected strong { color: var(--blue-dark); }
 .resort-select span { font-size: 13px; color: var(--muted); }
+.resort-select .resort-snow { font-variant-numeric: tabular-nums; }
+.resort-select b { color: var(--ink); font-weight: 600; }
 .resort .star { flex: none; border: 0; background: none; padding: 4px 8px; font-size: 22px; color: #718899; }
 .resort .star.saved { color: var(--gold); }
 
@@ -77,6 +79,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 .model-totals span { display: block; font-size: 13px; color: var(--muted); }
 .chart-heading { padding: 28px 24px 0; display: flex; gap: 14px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
 .chart-heading h2 { margin: 0; font-size: 19px; }
+.past-note { padding-top: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; }
 .legend span { display: flex; gap: 6px; align-items: center; }
 .chart-scroll { overflow-x: auto; }

@@ -78,6 +78,11 @@ main { padding-block: 24px 32px; min-width: 0; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
 .detail-periods { padding: 16px 24px 0; }
+.horizon-picker { display: flex; align-items: stretch; gap: 16px; }
+.horizon-group { display: grid; gap: 6px; align-content: start; }
+.horizon-group > small { color: var(--muted); font-size: 12px; }
+.horizon-group:last-child { flex: 1; min-width: 0; }
+.horizon-divider { flex: none; width: 0; border-left: 2px dashed var(--line-strong); }
 .forecast-context { padding: 18px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .model-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 24px 0; padding: 0; }
 .model-totals.simple { grid-template-columns: minmax(0, 1fr); }
@@ -209,6 +214,8 @@ td:first-child, th:first-child { text-align: left; }
   .model-totals > div { padding: 4px 8px 4px 10px; }
   .model-totals strong { font-size: 25px; }
   .detail-periods { padding-inline: 16px; }
+  .horizon-picker { flex-direction: column; gap: 10px; }
+  .horizon-divider { width: auto; border-left: 0; border-top: 2px dashed var(--line-strong); }
   .controls { width: 100%; }
   .controls select[aria-label="海拔"] { flex: 1; width: 0; }
   .controls label:has([aria-label="海拔"]) { flex-basis: 100%; }

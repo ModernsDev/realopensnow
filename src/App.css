@@ -13,7 +13,7 @@
 button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
 button.primary:hover:not(:disabled) { background: var(--blue-dark); }
 
-.page-head { background: url(/ridge.svg) right bottom / cover no-repeat, linear-gradient(#e3f0fa, #f1f7fb); }
+.page-head { background: url(./assets/ridge.svg) right bottom / cover no-repeat, linear-gradient(#e3f0fa, #f1f7fb); }
 .page-head-inner { padding-block: 34px 40px; }
 .page-head h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 700; letter-spacing: -.5px; margin-bottom: 6px; }
 .page-head p { margin: 0; color: #3d5669; font-size: 16px; }

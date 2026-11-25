@@ -22,12 +22,13 @@ export type Forecast = {
   grid: { lat: number; lon: number }; modelStatus: Record<string, string>
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
-export type ForecastWithReport = Forecast & { report: ReturnType<typeof dailyReport>; reportGenerated: string }
-const modelValues = (f: Forecast, field: string, i: number) => models.flatMap(m => {
+export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights'>
+export type ForecastWithReport = Forecast & { past: DailySeries; report: ReturnType<typeof dailyReport>; reportGenerated: string }
+const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
 })
-export function value(f: Forecast, field: string, model: string, i: number): number | null {
+export function value(f: DailySeries, field: string, model: string, i: number): number | null {
   if (model !== weighted.id) return f.daily[`${field}_${model}`]?.[i] ?? null
   const weights = f.weights ?? defaultWeights
   const enabled = models.filter(m => weights[m.id] > 0).length
@@ -41,7 +42,7 @@ export function spread(f: Forecast, field: string, i: number) {
 }
 export const missingModels = (f: Forecast, i: number) => models.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
 export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
-export function total(f: Forecast, model: string) {
+export function total(f: DailySeries, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
   return values.length === 7 && values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null
 }
@@ -53,6 +54,10 @@ export const forecastExpired = (data: Forecast, now: number) =>
 export function forecastDates(requested: string, timezone: string) {
   const start = localDate(Date.parse(requested), timezone)
   return Array.from({ length: 7 }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10))
+}
+export function pastDates(requested: string, timezone: string) {
+  const start = localDate(Date.parse(requested), timezone)
+  return Array.from({ length: 7 }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + (i - 7) * 86400000).toISOString().slice(0, 10))
 }
 export function aggregateHourly(data: unknown, dates: string[], timezone: string) {
   const raw = data as { timezone?: string; hourly?: Record<string, unknown>; hourly_units?: Record<string, unknown> }
@@ -84,8 +89,8 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
   }
   return { daily, modelStatus }
 }
-export function forecastSource(lat: number, lon: number, elevation: number, timezone: string) {
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: '8', past_days: '1', models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
+export function forecastSource(lat: number, lon: number, elevation: number, timezone: string, pastDays = 1) {
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: '8', past_days: String(pastDays), models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
   return `https://api.open-meteo.com/v1/forecast?${query}`
 }
 
@@ -96,7 +101,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-  const source = forecastSource(lat, lon, elevation, resort.timezone)
+  const source = forecastSource(lat, lon, elevation, resort.timezone, 8)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
   let data
   try {
@@ -112,9 +117,11 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     throw error
   }
   const fetched = new Date().toISOString()
-  const batch = forecastBatch(data, resort, point, requested, fetched)
+  const batch = { ...forecastBatch(data, resort, point, requested, fetched), source }
+  const dates = pastDates(requested, resort.timezone)
+  const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
   const report = dailyReport(batch)
-  return { ...batch, report, reportGenerated: new Date().toISOString() }
+  return { ...batch, past, report, reportGenerated: new Date().toISOString() }
 }
 
 export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string): Forecast {

@@ -8,27 +8,47 @@ export type Forecast = {
   grid: { lat: number; lon: number }; modelStatus: Record<string, string>
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
-export type ForecastWithReport = Forecast & { report: ReturnType<typeof dailyReport>; reportGenerated: string }
+export type ForecastWithReport = Forecast & { extended: Forecast; report: ReturnType<typeof dailyReport>; reportGenerated: string }
+export const forecastPeriods = [
+  ['今天', 0, 1],
+  ['明天', 1, 2],
+  ['后天', 2, 3],
+  ['未来 3 天', 0, 3],
+  ['未来 7 天', 0, 7],
+  ['未来 14 天', 0, 14],
+  ['第 8–14 天', 7, 14],
+] as const
+export const defaultPeriod = 4
 export const value = (f: Forecast, field: string, model: string, i: number) => f.daily[`${field}_${model}`]?.[i] ?? null
 export function total(f: Forecast, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
-  return values.length === 7 && values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null
+  return values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null
 }
 export const snow = (n: number | null, unit: string) => n === null ? '—' : (n / (unit === 'in' ? 2.54 : 1)).toFixed(1)
 export const localDate = (time: number, timezone: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(time)
 export const forecastExpired = (data: Forecast, now: number) =>
   now - Date.parse(data.fetched) >= 6 * 3600000 || data.dates[0] !== localDate(now, data.timezone)
 
-export function forecastDates(requested: string, timezone: string) {
+export function forecastDates(requested: string, timezone: string, days = 7) {
   const start = localDate(Date.parse(requested), timezone)
-  return Array.from({ length: 7 }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10))
+  return Array.from({ length: days }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10))
+}
+function statuses(daily: Forecast['daily']): Forecast['modelStatus'] {
+  return Object.fromEntries(models.map(({ id }) => {
+    const fields = Object.entries(daily).filter(([key]) => key.endsWith(`_${id}`)).flatMap(([, values]) => values)
+    return [id, fields.every(v => v !== null) ? '数据完整' : fields.some(v => v !== null) ? '部分缺失，— 不参与完整周期总量' : '不可用']
+  }))
+}
+export function slicePeriod(data: Forecast, start: number, end: number): Forecast {
+  const daily = Object.fromEntries(Object.entries(data.daily).map(([key, values]) => [key, values.slice(start, end)]))
+  return { ...data, dates: data.dates.slice(start, end), daily, modelStatus: statuses(daily) }
 }
 export function aggregateHourly(data: unknown, dates: string[], timezone: string) {
   const raw = data as { timezone?: string; hourly?: Record<string, unknown>; hourly_units?: Record<string, unknown> }
   const times = raw?.hourly?.time
   if (raw?.timezone !== timezone || raw.hourly_units?.time !== 'unixtime' || !Array.isArray(times) || !times.length || times.some((t, i) => !Number.isSafeInteger(t) || t % 3600 !== 0 || (i > 0 && t - times[i - 1] !== 3600))) throw new Error('天气服务的时区或小时时间轴无效')
   const daily: Forecast['daily'] = {}
-  const modelStatus: Forecast['modelStatus'] = {}
+  const labelsByShift = [0, 1].map(shift => times.map(t => localDate(t * 1000 - shift, timezone)))
   for (const model of models) {
     for (const [field, output, unit, operation] of [
       ['snowfall', 'snowfall_sum', 'cm', 'sum'],
@@ -37,7 +57,7 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
       ['wind_gusts_10m', 'wind_gusts_10m_max', 'km/h', 'max'],
     ]) {
       const shift = field === 'temperature_2m' ? 0 : 1
-      const labels = times.map(t => localDate(t * 1000 - shift, timezone))
+      const labels = labelsByShift[shift]
       const key = `${field}_${model.id}`
       const values = raw.hourly![key]
       daily[`${output}_${model.id}`] = dates.map(date => {
@@ -48,13 +68,11 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
         return operation === 'sum' ? selected.reduce((a, b) => a + b, 0) : operation === 'min' ? Math.min(...selected) : Math.max(...selected)
       })
     }
-    const fields = Object.entries(daily).filter(([key]) => key.endsWith(`_${model.id}`)).flatMap(([, values]) => values)
-    modelStatus[model.id] = fields.every(v => v !== null) ? '七日完整' : fields.some(v => v !== null) ? '部分缺失（含小时缺测或单位异常），— 不参与完整周期总量' : '不可用（缺测或单位异常）'
   }
-  return { daily, modelStatus }
+  return { daily, modelStatus: statuses(daily) }
 }
-export function forecastSource(lat: number, lon: number, elevation: number, timezone: string) {
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: '8', past_days: '1', models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
+export function forecastSource(lat: number, lon: number, elevation: number, timezone: string, days = 7) {
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: String(days + 1), past_days: '1', models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
   return `https://api.open-meteo.com/v1/forecast?${query}`
 }
 
@@ -65,7 +83,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-  const source = forecastSource(lat, lon, elevation, resort.timezone)
+  const source = forecastSource(lat, lon, elevation, resort.timezone, 14)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
   let data
   try {
@@ -81,16 +99,17 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     throw error
   }
   const fetched = new Date().toISOString()
-  const batch = forecastBatch(data, resort, point, requested, fetched)
+  const extended = forecastBatch(data, resort, point, requested, fetched, 14)
+  const batch = slicePeriod(extended, 0, 7)
   const report = dailyReport(batch)
-  return { ...batch, report, reportGenerated: new Date().toISOString() }
+  return { ...batch, extended, report, reportGenerated: new Date().toISOString() }
 }
 
-export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string): Forecast {
+export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string, days = 7): Forecast {
   const { lat, lon } = point.coordinates.value!
   const elevation = point.elevation.value!
-  const dates = forecastDates(requested, resort.timezone)
-  const source = forecastSource(lat, lon, elevation, resort.timezone)
+  const dates = forecastDates(requested, resort.timezone, days)
+  const source = forecastSource(lat, lon, elevation, resort.timezone, days)
   if (data.error) throw new Error('天气服务返回错误，无法生成预报')
   if (data.elevation !== elevation || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) throw new Error('天气服务返回的查询高度或网格坐标无效')
   const aggregated = aggregateHourly(data, dates, resort.timezone)

@@ -159,7 +159,7 @@ function App() {
         const unavailable = queryBlockReason(r, p)
         const { data: f, error } = active(k)
         return <article className="report-tile" key={r.id} aria-label={`${r.name} 每日雪报`}>
-          <h2><button onClick={() => { setSelected(r.id); setCreating(false); setAdding(false); navigate('resorts') }}>{r.name}</button></h2>
+          <h2><button onClick={() => { setSelected(r.id); setCreating(false); navigate('resorts') }}>{r.name}</button></h2>
           {unavailable ? <p className="tile-status" role="status">{unavailable}</p>
             : error ? <div className="tile-status error" role="alert"><p>暂不可用。{error}</p><button onClick={refresh} disabled={reportsLoading}>{pending(k) ? '正在重试…' : '重试'}</button></div>
             : f ? <ReportTile resort={r} data={f} unit={unit} mode={mode} />

@@ -42,6 +42,19 @@ main { padding-block: 24px 32px; min-width: 0; }
 .resort .star { flex: none; border: 0; background: none; padding: 4px 8px; font-size: 22px; color: #718899; }
 .resort .star.saved { color: var(--gold); }
 
+.list-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+.list-filter select { min-width: 0; flex: 1; font-size: 14px; color: var(--ink); }
+.list-filter span { white-space: nowrap; }
+.more { width: 100%; margin-top: 10px; }
+.resort-list:has(.list-filter) { max-height: calc(100vh - 48px); overflow-y: auto; position: sticky; top: 16px; padding-right: 4px; }
+.custom-form { padding: 24px; }
+.custom-form form { display: grid; gap: 18px; max-width: 520px; }
+.custom-form label { display: grid; gap: 6px; font-weight: 500; }
+.custom-form label small { font-weight: 400; }
+.custom-form .field-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.custom-form .field-row input { flex: 1; min-width: 180px; }
+.custom-form form > p { margin: 0; }
+
 .detail-header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .detail-header h2 { font-size: 28px; margin: 0; }
 .detail-header h2, .report, .empty { overflow-wrap: anywhere; }
@@ -168,6 +181,11 @@ footer a { color: inherit; }
   main { padding-top: 16px; }
   .workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .resort-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .resort-list:has(.list-filter) { position: static; flex-wrap: wrap; max-height: 55vh; padding-right: 0; }
+  .resort-list:has(.list-filter) .resort { flex: 1 0 100%; }
+  .workspace:has(.custom-form) .resort-list { display: none; }
+  .list-filter { flex: 1 0 100%; margin-bottom: 0; }
+  .actions { flex-wrap: wrap; }
   .resort { flex: 0 0 220px; background: var(--panel); border: 1px solid var(--line); }
   .resort + .resort { margin-top: 0; }
   .resort-list .footnote { flex: 0 0 200px; }

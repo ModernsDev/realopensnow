@@ -17,7 +17,7 @@ type Result = { readings: Awaited<ReturnType<typeof getObservations>> } | { erro
 
 export function Observations({ resort, unit, now }: { resort: Resort; unit: string; now: number }) {
   const station = observationStations[resort.id]
-  const operatorReport = operatorReports[resort.id] ?? sources[resort.identitySources[0]].url
+  const operatorReport = operatorReports[resort.id] ?? resort.website ?? (resort.identitySources[0] === 'openskimap' ? undefined : sources[resort.identitySources[0]].url)
   const [result, setResult] = useState<Result>()
   const [revision, setRevision] = useState(0)
   useEffect(() => {
@@ -69,7 +69,7 @@ export function Observations({ resort, unit, now }: { resort: Resort; unit: stri
         <div><dt>雪道开放</dt><dd>未知</dd></div>
         <div><dt>缆车开放</dt><dd>未知</dd></div>
       </dl>
-      <p><a href={operatorReport} target="_blank" rel="noreferrer">查看运营方信息</a></p>
+      {operatorReport ? <p><a href={operatorReport} target="_blank" rel="noreferrer">查看运营方信息</a></p> : <p>暂无运营方网站。</p>}
     </section>
   </>
 }

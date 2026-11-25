@@ -1,13 +1,14 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
 import { compareForecasts } from './compareForecasts'
-import { models, snow, type Forecast } from './weather'
+import { fixed, models, snow, weighted, weightLabel, type Forecast, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, model, setModel, unit, setUnit, refresh }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, setUnit, refresh }: {
   candidates: Candidate[]
   selected: string[]
   onToggle: (id: string) => void
+  weights: Weights
   model: string
   setModel: (model: string) => void
   unit: string
@@ -33,23 +34,23 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
     </fieldset>
     {enough ? <>
       <div className="controls compare-controls">
-        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...models].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
         <label>降雪单位 <select value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select></label>
         <button onClick={refresh} disabled={loading}>{comparing.some(candidate => candidate.error) ? '重试预报' : '刷新预报'}</button>
       </div>
       {loading ? <p role="status" className="empty">正在获取所选雪场的预报…</p> : <>
         {dates.length > 0
-          ? <p className="compare-window">共同日期窗口 <strong>{dates[0]} 至 {dates.at(-1)}</strong> · {dates.length} 天 · 各雪场当地日期</p>
+          ? <p className="compare-window"><strong>{dates[0]} 至 {dates.at(-1)}</strong> · {dates.length} 天</p>
           : <p role="status">暂无共同可用日期。</p>}
         <div className="table-scroll" tabIndex={0} role="region" aria-label="收藏雪场对比，可横向滚动">
           <table>
             <thead><tr><th scope="col">雪场</th>{columns.map(({ index }) => {
-              const { resort, point, data } = comparing[index]
+              const { resort, point } = comparing[index]
               return <th scope="col" key={resort.id}>
                 {resort.name}
                 <span>{point.name}</span>
-                <span>查询海拔 {elevationLabel(point)} · {resort.timezone}</span>
-                {data && <a href={data.source} target="_blank" rel="noreferrer">预报来源</a>}
+                <span>查询海拔 {elevationLabel(point)}</span>
+                
                 <button className="compare-remove" aria-label={`移除 ${resort.name}`} onClick={() => onToggle(resort.id)}>移除</button>
               </th>
             })}</tr></thead>
@@ -63,14 +64,14 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
                 <th scope="row">{date}</th>
                 {columns.map(({ index, days }) => <td key={comparing[index].resort.id}>
                   <span>降雪 {days[i].snow === null ? '缺失' : `${snow(days[i].snow, unit)} ${unit}`}</span>
-                  <span>气温 {days[i].low === null ? '缺失' : `${days[i].low} °C`} 至 {days[i].high === null ? '缺失' : `${days[i].high} °C`}</span>
-                  <span>阵风 {days[i].gust === null ? '缺失' : `${days[i].gust} km/h`}</span>
+                  <span>气温 {days[i].low === null ? '缺失' : `${fixed(days[i].low)} °C`} 至 {days[i].high === null ? '缺失' : `${fixed(days[i].high)} °C`}</span>
+                  <span>阵风 {days[i].gust === null ? '缺失' : `${fixed(days[i].gust)} km/h`}</span>
                 </td>)}
               </tr>)}
             </tbody>
           </table>
         </div>
-        <p className="muted">按当前模型的窗口累计降雪从高到低排列。窗口取已返回预报的日期交集，窗口内降雪、气温或阵风有缺失的雪场不参与排名。</p>
+        {model === weighted.id && <p className="muted">加权综合 = {weightLabel(weights)} · <a href="#settings">修改权重</a></p>}
       </>}
     </> : <p className="empty">{candidates.length < 2 ? '请先收藏至少两个雪场。' : '请选择至少两个收藏雪场开始对比。'}</p>}
   </section>

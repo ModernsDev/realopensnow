@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, total, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, pastDates, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -18,6 +18,14 @@ test('civil dates use resort timezone at UTC midnight and include today plus six
   assert.equal(forecastDates('2026-11-17T01:00:00Z', 'America/Denver')[0], '2026-11-16')
   assert.equal(forecastDates('2026-11-17T23:00:00Z', 'Asia/Tokyo')[0], '2026-11-18')
   assert.equal(forecastDates('2026-12-30T23:00:00Z', 'Europe/Paris').at(-1), '2027-01-06')
+})
+
+test('past dates are the seven complete resort days before today, across year and DST boundaries', () => {
+  assert.deepEqual(pastDates('2027-01-03T01:00:00Z', 'America/Denver'), ['2026-12-26', '2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01'])
+  const raw = hours('2026-10-31T06:00:00Z', 169)
+  raw.hourly.snowfall_gfs_seamless.fill(1)
+  const dates = pastDates('2026-11-07T17:00:00Z', raw.timezone)
+  assert.equal(total({ dates, ...aggregateHourly(raw, dates, raw.timezone) }, 'gfs_seamless'), 169)
 })
 
 test('local daily sums include exactly 23/25 DST hours and snowfall belongs to its preceding hour', () => {
@@ -85,6 +93,8 @@ test('API request explicitly fixes units and epoch times; network/HTTP/schema fa
       return Response.json(raw)
     }
     const data = await forecast(resorts[0], resorts[0].points[3])
+    assert.equal(new URL(data.source).searchParams.get('past_days'), '8')
+    assert.equal(data.past.dates.length, 7)
     assert.ok(data.source.startsWith('https://api.open-meteo.com/v1/forecast?'))
     assert.ok(Date.parse(data.fetched) >= Date.parse(data.requested))
     assert.deepEqual(data.grid, { lat: 40.5, lon: -111.75 })
@@ -108,6 +118,19 @@ test('forecast expires at six hours or when the resort advances to its next civi
   assert.equal(forecastExpired(data, Date.parse('2026-11-17T14:59:59Z')), false)
   assert.equal(forecastExpired(data, Date.parse('2026-11-17T15:00:00Z')), true)
   assert.equal(forecastExpired({ ...data, timezone: 'America/Denver' }, Date.parse('2026-11-17T18:00:00Z')), true)
+})
+
+test('weighted blend uses fixed weights, renormalizes over available models and needs at least two', () => {
+  const daily = {
+    snowfall_sum_ecmwf_ifs025: [10, null, null, 0],
+    snowfall_sum_gfs_seamless: [20, 20, null, 0],
+    snowfall_sum_icon_seamless: [40, 40, 40, 0],
+  }
+  const data = { dates: ['a', 'b', 'c', 'd'], daily } as unknown as Forecast
+  assert.equal(models.reduce((sum, m) => sum + m.weight, 0), 100)
+  assert.deepEqual(data.dates.map((_, i) => value(data, 'snowfall_sum', 'weighted', i)), [20, 30, null, 0])
+  assert.deepEqual(spread(data, 'snowfall_sum', 0), { low: 10, high: 40 })
+  assert.equal(spread(data, 'snowfall_sum', 2), null)
 })
 
 test('periods beyond a model horizon stay missing while nearer periods keep complete totals', () => {

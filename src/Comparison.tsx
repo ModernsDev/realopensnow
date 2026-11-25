@@ -4,7 +4,8 @@ import { fixed, models, snow, total, weighted, weightLabel, type Forecast, type 
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, refresh }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, refresh, hidden }: {
+  hidden: string[]
   candidates: Candidate[]
   selected: string[]
   onToggle: (id: string) => void
@@ -19,7 +20,7 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
   const loading = comparing.some(candidate => candidate.loading)
   const { dates, columns } = compareForecasts(comparing.map(candidate => candidate.data), model)
 
-  const options = models.filter(m => m.id === model || comparing.some(({ data }) => data && total(data, m.id) !== null))
+  const options = models.filter(m => m.id === model || !hidden.includes(m.id) && comparing.some(({ data }) => data && total(data, m.id) !== null))
 
   return <section className="detail compare">
     <fieldset className="compare-picker">

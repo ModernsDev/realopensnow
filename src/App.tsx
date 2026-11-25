@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { defaultRange, forecast, forecastExpired, localDate, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
+import { dailyReport, defaultRange, forecast, forecastExpired, localDate, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
 import { ForecastView, ModeSwitch, Report, ReportTile } from './Forecast'
 import { ForecastHistory } from './ForecastHistory'
 import { Observations } from './ResortObservations'
@@ -10,7 +10,7 @@ import { readFavorites, saveFavorites } from './favorites'
 import { customResort, readCustomLocations, saveCustomLocations, type CustomLocation } from './customLocations'
 import { CustomLocationForm } from './CustomLocationForm'
 import { Settings } from './Settings'
-import { readWeights, saveWeights } from './weights'
+import { readHidden, readWeights, saveSettings } from './weights'
 import { TimelinePicker } from './PeriodPicker'
 import { Regions } from './Regions'
 import './App.css'
@@ -46,7 +46,11 @@ function App() {
   const [comparisonIds, setComparisonIds] = useState(() => favorites.slice(0, 5))
   const [comparisonModel, setComparisonModel] = useState(weighted.id)
   const [mode, setMode] = useState<Mode>('simple')
-  const [weightState, setWeightState] = useState(() => readWeights(document.cookie))
+  const [weightState, setWeightState] = useState(() => {
+    const { weights, error } = readWeights(document.cookie)
+    const hidden = readHidden(document.cookie)
+    return { weights, hidden: hidden.hidden, error: error ?? hidden.error }
+  })
   const [unit, setUnitState] = useState(() => storage().getItem('snow-unit') === 'in' ? 'in' : 'cm')
   const setUnit = (next: string) => { storage().setItem('snow-unit', next); setUnitState(next) }
   const [range, setRange] = useState(defaultRange)
@@ -84,7 +88,10 @@ function App() {
   const active = (k: string) => {
     const { data, error } = results[k] ?? {}
     if (data && forecastExpired(data, now)) return { error: '预报已过期，请重新获取。' }
-    return { data: pending(k) || !data ? undefined : { ...data, weights: weightState.weights, past: { ...data.past, weights: weightState.weights } }, error }
+    if (pending(k) || !data) return { error }
+    const prefs = { weights: weightState.weights, hidden: weightState.hidden }
+    const view = { ...data, ...prefs, past: { ...data.past, ...prefs }, extended: { ...data.extended, ...prefs } }
+    return { data: { ...view, report: dailyReport(view, byId.get(data.query.resortId)!) }, error }
   }
   const { data, error } = active(key)
   useEffect(() => {
@@ -132,7 +139,7 @@ function App() {
     {favoriteState.error && <div role="alert" className="empty error">{favoriteState.error}<button onClick={() => setFavoriteState({ ids: favorites, error: saveFavorites(favorites, document, idsOf(custom)) })}>重试保存收藏</button></div>}
     {customState.error && <div role="alert" className="empty error">{customState.error}<button onClick={() => setCustomState({ locations: custom, error: saveCustomLocations(custom, storage) })}>保存当前地点列表</button></div>}
     {weightState.error && view !== 'settings' && <div role="alert" className="empty error">{weightState.error}<button onClick={() => navigate('settings')}>打开设置</button></div>}
-    {view === 'settings' ? <Settings unit={unit} onUnit={setUnit} weights={weightState.weights} error={weightState.error} onSave={weights => setWeightState({ weights, error: saveWeights(weights, document, location.protocol === 'https:') })} /> : view === 'regions' ? <Regions /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{tracked.length ? tracked.map(r => { const f = active(`${r.id}-${pointFor(r).id}`).data; return <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => { setSelected(r.id); setCreating(false) }}><strong>{r.name}</strong><span>{r.region}</span><span>{elevationRange(r)}</span>{f && <span className="resort-snow">过去 7 天 <b>{snow(total(f.past, weighted.id), unit)}</b> · 未来 7 天 <b>{snow(total(f, weighted.id), unit)}</b> {unit}</span>}</button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div> }) : <p className="empty">还没有收藏雪场。用右上角搜索打开雪场，再点标题旁的“添加”。</p>}</section>{creating ? <CustomLocationForm onAdd={addLocation} onCancel={() => setCreating(false)} /> : !byId.has(selected) ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><div className="detail-title"><h2>{resort.name}</h2><button className={`title-star ${favorites.includes(resort.id) ? 'saved' : ''}`} aria-pressed={favorites.includes(resort.id)} aria-label={`${favorites.includes(resort.id) ? '取消收藏' : '收藏'} ${resort.name}`} title={favorites.includes(resort.id) ? '从我的雪场移除' : '添加到我的雪场'} onClick={() => toggle(resort.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" /></svg><span>{favorites.includes(resort.id) ? '已添加' : '添加'}</span></button></div><div className="controls"><ModeSwitch mode={mode} setMode={setMode} /><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p)}</option>)}</select></label>{resort.custom && <button onClick={() => { if (window.confirm(`删除自定义地点“${resort.name}”？`)) removeLocation(resort.id) }}>删除地点</button>}<button onClick={refresh} disabled={pending(key) || !!blocked}>{pending(key) ? '获取中…' : '刷新'}</button></div></div>{!resort.custom && <Observations key={resort.id} resort={resort} unit={unit} now={now} />}{!blocked && <div className="detail-periods"><TimelinePicker range={range} today={localDate(now, resort.timezone)} onChange={setRange} /></div>}{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}<button onClick={refresh} disabled={pending(key)}>{pending(key) ? '正在重试…' : '重试'}</button></div> : data ? <ForecastView resort={resort} data={data} days={range} unit={unit} mode={mode} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取预报…</p>}{!blocked && !resort.custom && <ForecastHistory key={point.id} resort={resort} point={point} unit={unit} />}</section>}</div> : view === 'compare' ? <Comparison
+    {view === 'settings' ? <Settings unit={unit} onUnit={setUnit} weights={weightState.weights} hidden={weightState.hidden} error={weightState.error} onSave={(weights, hidden) => setWeightState({ weights, hidden, error: saveSettings(weights, hidden, document, location.protocol === 'https:') })} /> : view === 'regions' ? <Regions /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{tracked.length ? tracked.map(r => { const f = active(`${r.id}-${pointFor(r).id}`).data; return <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => { setSelected(r.id); setCreating(false) }}><strong>{r.name}</strong><span>{r.region}</span><span>{elevationRange(r)}</span>{f && <span className="resort-snow">过去 7 天 <b>{snow(total(f.past, weighted.id), unit)}</b> · 未来 7 天 <b>{snow(total(f, weighted.id), unit)}</b> {unit}</span>}</button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div> }) : <p className="empty">还没有收藏雪场。用右上角搜索打开雪场，再点标题旁的“添加”。</p>}</section>{creating ? <CustomLocationForm onAdd={addLocation} onCancel={() => setCreating(false)} /> : !byId.has(selected) ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><div className="detail-title"><h2>{resort.name}</h2><button className={`title-star ${favorites.includes(resort.id) ? 'saved' : ''}`} aria-pressed={favorites.includes(resort.id)} aria-label={`${favorites.includes(resort.id) ? '取消收藏' : '收藏'} ${resort.name}`} title={favorites.includes(resort.id) ? '从我的雪场移除' : '添加到我的雪场'} onClick={() => toggle(resort.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" /></svg><span>{favorites.includes(resort.id) ? '已添加' : '添加'}</span></button></div><div className="controls"><ModeSwitch mode={mode} setMode={setMode} /><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p)}</option>)}</select></label>{resort.custom && <button onClick={() => { if (window.confirm(`删除自定义地点“${resort.name}”？`)) removeLocation(resort.id) }}>删除地点</button>}<button onClick={refresh} disabled={pending(key) || !!blocked}>{pending(key) ? '获取中…' : '刷新'}</button></div></div>{!resort.custom && <Observations key={resort.id} resort={resort} unit={unit} now={now} />}{!blocked && <div className="detail-periods"><TimelinePicker range={range} today={localDate(now, resort.timezone)} onChange={setRange} /></div>}{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}<button onClick={refresh} disabled={pending(key)}>{pending(key) ? '正在重试…' : '重试'}</button></div> : data ? <ForecastView resort={resort} data={data} days={range} unit={unit} mode={mode} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取预报…</p>}{!blocked && !resort.custom && <ForecastHistory key={point.id} resort={resort} point={point} unit={unit} />}</section>}</div> : view === 'compare' ? <Comparison
       candidates={tracked.map(r => {
         const point = pointFor(r)
         const k = `${r.id}-${point.id}`
@@ -143,6 +150,7 @@ function App() {
       selected={comparisonIds}
       onToggle={id => setComparisonIds(ids => ids.includes(id) ? ids.filter(value => value !== id) : ids.length < 5 ? [...ids, id] : ids)}
       weights={weightState.weights}
+      hidden={weightState.hidden}
       model={comparisonModel}
       setModel={setComparisonModel}
       unit={unit}

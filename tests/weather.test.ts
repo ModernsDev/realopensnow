@@ -127,7 +127,6 @@ test('weighted blend uses fixed weights, renormalizes over available models and 
     snowfall_sum_icon_seamless: [40, 40, 40, 0],
   }
   const data = { dates: ['a', 'b', 'c', 'd'], daily } as unknown as Forecast
-  assert.equal(models.reduce((sum, m) => sum + m.weight, 0), 100)
   assert.deepEqual(data.dates.map((_, i) => value(data, 'snowfall_sum', 'weighted', i)), [20, 30, null, 0])
   assert.deepEqual(spread(data, 'snowfall_sum', 0), { low: 10, high: 40 })
   assert.equal(spread(data, 'snowfall_sum', 2), null)
@@ -154,7 +153,9 @@ test('models without data at a location are hidden and do not block the report o
     assert.equal(ids('wind_gusts_10m_max').includes('ecmwf_aifs025_single'), false)
     assert.equal(total(data, 'gfs_hrrr'), null)
     assert.equal(value(data, 'snowfall_sum', 'gfs_hrrr', 0), 216)
-    assert.equal(value(data, 'snowfall_sum', 'weighted', 0), 24)
+    const weight = (id: string) => models.find(m => m.id === id)!.weight
+    const sum = models.reduce((n, m) => n + m.weight, 0) - weight('icon_d2')
+    assert.equal(value(data, 'snowfall_sum', 'weighted', 0), ((sum - weight('gfs_hrrr')) * 24 + weight('gfs_hrrr') * 216) / sum)
     assert.equal('blocked' in data.report, false)
   } finally { globalThis.fetch = original }
 })

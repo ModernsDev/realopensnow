@@ -1,51 +1,76 @@
-import { useRef } from 'react'
-import { availableModels, fixed, missingModels, modes, resorts, models, snow, spread, total, value, weighted, weightLabel, type Mode, type Forecast, type ForecastWithReport } from './weather'
+import { availableModels, fixed, missingModels, modes, models, snow, spread, total, value, weighted, weightLabel, resortPeriods, defaultResortPeriod, slicePeriod, type Period, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
 
 export function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
   return <div className="mode-switch" role="group" aria-label="预报模式">{(Object.keys(modes) as Mode[]).map(m => <button key={m} aria-pressed={mode === m} onClick={() => setMode(m)}>{modes[m]}</button>)}</div>
 }
-export function Report({ data, unit, mode, inWorkspace = false }: { data: ForecastWithReport; unit: string; mode: Mode; inWorkspace?: boolean }) {
-  const { report: summary, reportGenerated: generated } = data
-  const details = useRef<HTMLDetailsElement>(null)
-  if ('blocked' in summary) return <div className="report" role="status"><p>每日雪报暂不可用。{summary.blocked}</p><p><a href={data.source} target="_blank" rel="noreferrer">查看本批 Open-Meteo 请求</a> · 接收时间 <time dateTime={data.fetched}>{data.fetched}</time></p></div>
-  const resort = resorts.find(r => r.id === data.query.resortId)!
+export function Report({ resort, data, unit, mode }: { resort: Resort; data: ForecastWithReport; unit: string; mode: Mode }) {
+  const { report: summary } = data
+  if ('blocked' in summary) return <div className="report" role="status"><p>每日雪报暂不可用。{summary.blocked}</p></div>
   const point = resort.points.find(p => p.id === data.query.pointId)!
-  const detailId = `forecast-${resort.id}-${point.id}`
   return <article className="report" aria-label={`${resort.name} 每日雪报`}>
-    {inWorkspace && <h2>每日雪报</h2>}
-    <p>{inWorkspace && `${resort.name} · `}{point.name} · 查询海拔 {data.query.elevation} m</p>
-    <p className="muted">雪场当地 {data.dates[0]} · {data.timezone} · 以下为模型预报，实测降雪未接入。</p>
+    <h2>每日雪报</h2>
+    <p>{resort.name} · {point.name} · 查询海拔 {data.query.elevation} m</p>
+    <p className="muted">{data.dates[0]}</p>
     {mode === 'simple' ? <>
       <p><strong>当日加权降雪</strong> · {snow(value(data, 'snowfall_sum', weighted.id, 0), unit)} {unit}</p>
       <p><strong>七日加权累计</strong> · {snow(total(data, weighted.id), unit)} {unit}（模型范围 {snow(summary.lowTotal, unit)}–{snow(summary.highTotal, unit)} {unit}）</p>
       <p><strong>当日加权阵风</strong> · {fixed(value(data, 'wind_gusts_10m_max', weighted.id, 0))} km/h</p>
       <p><strong>当日加权气温</strong> · {fixed(value(data, 'temperature_2m_min', weighted.id, 0))} 至 {fixed(value(data, 'temperature_2m_max', weighted.id, 0))} °C</p>
-      <p className="muted">权重 {weightLabel}</p>
+      <p className="muted">权重 {weightLabel(data.weights)}</p>
     </> : <>
     <p><strong>当日预报降雪</strong> · {summary.today.map(model => `${model.name} ${snow(model.snowfall, unit)} ${unit}`).join(' / ')}</p>
-    <p><strong>七日模型分歧</strong> · {data.dates[0]} 至 {data.dates.at(-1)}，各模型累计预报降雪 {snow(summary.lowTotal, unit)}–{snow(summary.highTotal, unit)} {unit}（模型最小至最大值）</p>
+    <p><strong>七日模型分歧</strong> · {data.dates[0]} 至 {data.dates.at(-1)}，各模型累计预报降雪 {snow(summary.lowTotal, unit)}–{snow(summary.highTotal, unit)} {unit}</p>
     <p><strong>当日预报阵风</strong> · 各模型最高 {summary.gust} km/h</p>
     <p><strong>当日预报气温</strong> · 各模型最低至最高 {summary.lowTemp} 至 {summary.highTemp} °C</p>
     </>}
-    <p className="muted">报告生成 <time dateTime={generated}>{generated}</time><br />预报接收 <time dateTime={data.fetched}>{data.fetched}</time></p>
-    <p><a href={data.source} target="_blank" rel="noreferrer">来源 · 本批 Open-Meteo 请求</a> · <a href={`#${detailId}`} onClick={() => { if (details.current) details.current.open = true }}>查看本批预报明细</a></p>
-    {!inWorkspace && <details id={detailId} ref={details}><summary>{mode === 'simple' ? '七日加权明细' : '七日各模型明细'}</summary><ForecastView data={data} unit={unit} mode={mode} /></details>}
+    <p><a href={`#forecast-${resort.id}-${point.id}`}>预报明细</a></p>
   </article>
 }
-export function ForecastView({ data, unit, id, mode, archived = false }: { data: Forecast; unit: string; mode: Mode; id?: string; archived?: boolean }) {
+export function ReportTile({ resort, data, unit, mode }: { resort: Resort; data: ForecastWithReport; unit: string; mode: Mode }) {
+  const { report: summary } = data
+  if ('blocked' in summary) return <p className="tile-status" role="status">{summary.blocked}</p>
+  const point = resort.points.find(p => p.id === data.query.pointId)!
   const simple = mode === 'simple'
-  const available = availableModels(data)
-  const snowModels = availableModels(data, 'snowfall_sum')
-  const gustModels = availableModels(data, 'wind_gusts_10m_max')
-  const tempModels = availableModels(data, 'temperature_2m_min')
+  const snows = summary.today.map(m => m.snowfall)
+  const today = simple ? snow(value(data, 'snowfall_sum', weighted.id, 0), unit) : `${snow(Math.min(...snows), unit)}–${snow(Math.max(...snows), unit)}`
+  const week = simple ? snow(total(data, weighted.id), unit) : `${snow(summary.lowTotal, unit)}–${snow(summary.highTotal, unit)}`
+  const temps = simple ? `${fixed(value(data, 'temperature_2m_min', weighted.id, 0))} ~ ${fixed(value(data, 'temperature_2m_max', weighted.id, 0))}` : `${summary.lowTemp} ~ ${summary.highTemp}`
+  const gust = simple ? fixed(value(data, 'wind_gusts_10m_max', weighted.id, 0)) : summary.gust
+  return <>
+    <p className="tile-meta">{point.name} · {data.query.elevation} m · {data.dates[0]}</p>
+    <p className="tile-snow"><b>{today}</b> {unit}<span>今日{simple ? '加权' : '模型范围'}</span></p>
+    <dl className="tile-stats">
+      <div><dt>7 天</dt><dd>{week} {unit}</dd></div>
+      <div><dt>气温</dt><dd>{temps} °C</dd></div>
+      <div><dt>阵风</dt><dd>{gust} km/h</dd></div>
+    </dl>
+  </>
+}
+type Series = { id: string; name: string; color: string }
+function SnowChart({ data, series, unit, split }: { data: DailySeries; series: Series[]; unit: string; split: number }) {
+  const max = Math.max(1, ...series.flatMap(m => data.dates.map((_, i) => value(data, 'snowfall_sum', m.id, i) ?? 0)))
+  const compact = series.length > 3
+  return <div className="chart-scroll" tabIndex={0} role="region" aria-label="降雪图，可横向滚动"><div className={`chart days-${data.dates.length}`} aria-label="降雪柱状图">{data.dates.map((date, i) => <div className={`day${i < split ? ' past' : ''}${i === split && split > 0 ? ' today' : ''}`} key={date}>{i === split && split > 0 && <em>今天</em>}<div className={compact ? 'bars compact' : 'bars'}>{series.map(m => { const n = value(data, 'snowfall_sum', m.id, i); return compact && n === null ? null : <div className="bar-column" key={m.id}>{!compact && <span>{snow(n, unit)}</span>}<div title={`${date} ${m.name}: ${snow(n, unit)} ${unit}`} style={{ height: `${n === null ? 0 : n / max * 170}px`, minHeight: n === null ? 0 : undefined, background: m.color }} /></div> })}</div><span>{date.slice(5)}</span></div>)}</div></div>
+}
+export function ForecastView({ resort, data, unit, id, mode, period = resortPeriods[defaultResortPeriod], archived = false }: { resort: Resort; data: Forecast & { past?: DailySeries; extended?: Forecast }; unit: string; mode: Mode; id?: string; period?: Period; archived?: boolean }) {
+  const simple = mode === 'simple'
+  const all = data.extended ?? data
+  const snowModels = availableModels(all, 'snowfall_sum')
+  const gustModels = availableModels(all, 'wind_gusts_10m_max')
+  const tempModels = availableModels(all, 'temperature_2m_min')
   const series = simple ? [weighted] : snowModels
-  const totals = models.map(m => total(data, m.id)).filter(n => n !== null)
+  const [label, start, end] = period
+  const past = start < 0 ? data.past : undefined
+  const future = { ...slicePeriod(data.extended ?? data, Math.max(start, 0), Math.max(end, 0)), weights: data.weights }
+  const sum = future.dates.length ? future : past ?? future
+  const shown = past ? future.dates.length ? { weights: data.weights, dates: [...past.dates, ...future.dates], daily: Object.fromEntries(Object.keys(future.daily).map(key => [key, [...past.daily[key], ...future.daily[key]]])) } : past : future
+  const split = past ? past.dates.length : 0
+  const sumLabel = !future.dates.length ? '过去 7 天累计' : past ? `未来 ${future.dates.length} 天累计` : `${label}累计`
+  const totals = models.map(m => total(sum, m.id)).filter(n => n !== null)
   const range = (i: number) => {
-    const s = spread(data, 'snowfall_sum', i)
+    const s = spread(shown, 'snowfall_sum', i)
     return s ? `${snow(s.low, unit)}–${snow(s.high, unit)}` : '—'
   }
-  const max = Math.max(1, ...series.flatMap(m => data.dates.map((_, i) => value(data, 'snowfall_sum', m.id, i) ?? 0)))
-  const resort = resorts.find(r => r.id === data.query.resortId)!
   const point = resort.points.find(p => p.id === data.query.pointId)!
-  return <><p id={id} className="forecast-context">{resort.name} · {point.name} · 查询海拔 {data.query.elevation.toLocaleString('zh-CN')} m</p>{simple ? <dl className="model-totals simple" aria-label="七日加权降雪"><div><dt><i style={{ background: weighted.color }} />{weighted.name}</dt><dd><strong>{snow(total(data, weighted.id), unit)}</strong> {unit}<span>七日累计 · {totals.length > 1 ? `完整模型范围 ${snow(Math.min(...totals), unit)}–${snow(Math.max(...totals), unit)} ${unit}` : '完整模型不足两个，无范围'}</span><span>权重 {weightLabel}</span></dd></div></dl> : <dl className="model-totals" aria-label="七日预报降雪">{available.map(m => <div key={m.id}><dt><i style={{ background: m.color }} />{m.name}</dt><dd><strong>{snow(total(data, m.id), unit)}</strong> {unit}<span>七日累计 · {data.modelStatus[m.id]}</span></dd></div>)}</dl>}<div className="chart-heading"><h2>{archived ? '存档的七日降雪预报' : '未来 7 天降雪'} <small>({unit})</small></h2><div className="legend">{series.map(m => <span key={m.id}><i style={{ background: m.color }} />{m.name}</span>)}</div></div><div className="chart-scroll" tabIndex={0} role="region" aria-label="七日降雪图，可横向滚动"><div className="chart" aria-label="七日降雪柱状图">{data.dates.map((date, i) => <div className="day" key={date}><div className={simple ? 'bars' : 'bars compact'}>{series.map(m => { const n = value(data, 'snowfall_sum', m.id, i); return !simple && n === null ? null : <div className="bar-column" key={m.id}>{simple && <span>{snow(n, unit)}</span>}<div title={`${date} ${m.name}: ${snow(n, unit)} ${unit}`} style={{ height: `${n === null ? 0 : n / max * 170}px`, minHeight: n === null ? 0 : undefined, background: m.color }} /></div> })}</div><span>{date.slice(5)}</span></div>)}</div></div><div className="table-scroll" tabIndex={0} role="region" aria-label="七日模型明细，可横向滚动">{simple ? <table><thead><tr><th>日期</th><th>加权降雪 ({unit})</th><th>模型范围 ({unit})</th><th>阵风 (km/h)</th><th>温度 (°C)</th><th>缺失模型</th></tr></thead><tbody>{data.dates.map((date, i) => <tr key={date}><td>{date.slice(5)}</td><td><strong>{snow(value(data, 'snowfall_sum', weighted.id, i), unit)}</strong></td><td>{range(i)}</td><td>{fixed(value(data, 'wind_gusts_10m_max', weighted.id, i))}</td><td>{fixed(value(data, 'temperature_2m_min', weighted.id, i))} / {fixed(value(data, 'temperature_2m_max', weighted.id, i))}</td><td>{missingModels(data, i).join('、') || '无'}</td></tr>)}</tbody></table> : <table><thead><tr><th>日期</th>{snowModels.map(m => <th key={m.id}>{m.name} ({unit})</th>)}<th>降雪范围 ({unit})</th>{gustModels.map(m => <th key={`${m.id}-wind`}>{m.name} 阵风 (km/h)</th>)}{tempModels.map(m => <th key={`${m.id}-temp`}>{m.name} 温度 (°C)</th>)}</tr></thead><tbody>{data.dates.map((date, i) => <tr key={date}><td>{date.slice(5)}</td>{snowModels.map(m => <td key={m.id}>{snow(value(data, 'snowfall_sum', m.id, i), unit)}</td>)}<td>{range(i)}</td>{gustModels.map(m => <td key={`${m.id}-wind`}>{value(data, 'wind_gusts_10m_max', m.id, i) ?? '—'}</td>)}{tempModels.map(m => <td key={`${m.id}-temp`}>{value(data, 'temperature_2m_min', m.id, i) ?? '—'} / {value(data, 'temperature_2m_max', m.id, i) ?? '—'}</td>)}</tr>)}</tbody></table>}</div><p className="muted footnote">{simple ? '加权综合按固定经验权重计算，未经实测校准；缺一模型时其余权重按比例放大，不足两个模型显示 —。' : '表格分别展示各模型风温；'}— 表示缺失，不等于零。海拔为查询点高度，不能代表整个雪场。</p><section className="catalog" aria-label="预报来源与覆盖"><h3>预报来源与覆盖</h3><p><a href={data.source} target="_blank" rel="noreferrer">Open-Meteo · 本批真实 API 请求</a> · {available.map(m => m.name).join(' / ')}</p><p>请求时间 {data.requested} · 接收时间 {data.fetched}</p><p>覆盖 {data.dates[0]} 00:00 至 {data.dates.at(-1)} 当日结束 · {data.timezone} · 含今天的七个当地自然日</p><p>查询点 {data.query.lat}, {data.query.lon} · {data.query.elevation} m；API 网格中心 {data.grid.lat}, {data.grid.lon}</p><p>降雪/阵风按前一小时、温度按瞬时时刻汇总当地自然日，夏令时日可含 23/25 小时。降雪 cm / in，温度 °C，阵风 km/h。模型起报时间：接口未提供；获取时间不代表起报时间。</p></section></>
+  return <><p id={id} className="forecast-context">{resort.name} · {point.name} · 查询海拔 {data.query.elevation.toLocaleString('zh-CN')} m</p>{simple ? <dl className="model-totals simple" aria-label={`${label}加权降雪`}><div><dt><i style={{ background: weighted.color }} />{weighted.name}</dt><dd><strong>{snow(total(sum, weighted.id), unit)}</strong> {unit}<span>{sumLabel} · {totals.length > 1 ? `完整模型范围 ${snow(Math.min(...totals), unit)}–${snow(Math.max(...totals), unit)} ${unit}` : '完整模型不足两个，无范围'}</span>{past && sum !== past && <span>过去 7 天累计 {snow(total(past, weighted.id), unit)} {unit}</span>}<span>权重 {weightLabel(data.weights)} · <a href="#settings">修改权重</a></span></dd></div></dl> : <dl className="model-totals" aria-label={`${label}预报降雪`}>{snowModels.map(m => <div key={m.id}><dt><i style={{ background: m.color }} />{m.name}</dt><dd><strong>{snow(total(sum, m.id), unit)}</strong> {unit}<span>{sumLabel}{sum === future && !future.modelStatus[m.id].endsWith('完整') && ` · ${future.modelStatus[m.id]}`}</span>{past && sum !== past && <span>过去 7 天累计 {snow(total(past, m.id), unit)} {unit}</span>}</dd></div>)}</dl>}<div className="chart-heading"><h2>{archived ? '存档的七日降雪预报' : `${label}降雪`} <small>({unit})</small></h2><div className="legend">{series.map(m => <span key={m.id}><i style={{ background: m.color }} />{m.name}</span>)}</div></div><SnowChart data={shown} series={series} unit={unit} split={split} /><div className="table-scroll" tabIndex={0} role="region" aria-label="逐日明细，可横向滚动">{simple ? <table><thead><tr><th>日期</th><th>加权降雪 ({unit})</th><th>模型范围 ({unit})</th><th>阵风 (km/h)</th><th>温度 (°C)</th><th>缺失模型</th></tr></thead><tbody>{shown.dates.map((date, i) => <tr key={date} className={i < split ? 'past' : i === split && split > 0 ? 'today' : undefined}><td>{date.slice(5)}</td><td><strong>{snow(value(shown, 'snowfall_sum', weighted.id, i), unit)}</strong></td><td>{range(i)}</td><td>{fixed(value(shown, 'wind_gusts_10m_max', weighted.id, i))}</td><td>{fixed(value(shown, 'temperature_2m_min', weighted.id, i))} / {fixed(value(shown, 'temperature_2m_max', weighted.id, i))}</td><td>{missingModels(shown, i).join('、') || '无'}</td></tr>)}</tbody></table> : <table><thead><tr><th>日期</th>{snowModels.map(m => <th key={m.id}>{m.name} ({unit})</th>)}<th>降雪范围 ({unit})</th>{gustModels.map(m => <th key={`${m.id}-wind`}>{m.name} 阵风 (km/h)</th>)}{tempModels.map(m => <th key={`${m.id}-temp`}>{m.name} 温度 (°C)</th>)}</tr></thead><tbody>{shown.dates.map((date, i) => <tr key={date} className={i < split ? 'past' : i === split && split > 0 ? 'today' : undefined}><td>{date.slice(5)}</td>{snowModels.map(m => <td key={m.id}>{snow(value(shown, 'snowfall_sum', m.id, i), unit)}</td>)}<td>{range(i)}</td>{gustModels.map(m => <td key={`${m.id}-wind`}>{value(shown, 'wind_gusts_10m_max', m.id, i) ?? '—'}</td>)}{tempModels.map(m => <td key={`${m.id}-temp`}>{value(shown, 'temperature_2m_min', m.id, i) ?? '—'} / {value(shown, 'temperature_2m_max', m.id, i) ?? '—'}</td>)}</tr>)}</tbody></table>}</div><p className="muted footnote">— 表示缺失{end > 7 && '。ICON 预报约 7.5 天，更远日期无数据；第 2 周仅供初筛。'}</p></>
 }

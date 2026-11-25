@@ -1,13 +1,14 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
 import { compareForecasts } from './compareForecasts'
-import { fixed, models, snow, total, weighted, weightLabel, type Forecast } from './weather'
+import { fixed, models, snow, total, weighted, weightLabel, type Forecast, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, model, setModel, unit, setUnit, refresh }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, setUnit, refresh }: {
   candidates: Candidate[]
   selected: string[]
   onToggle: (id: string) => void
+  weights: Weights
   model: string
   setModel: (model: string) => void
   unit: string
@@ -41,17 +42,17 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
       </div>
       {loading ? <p role="status" className="empty">正在获取所选雪场的预报…</p> : <>
         {dates.length > 0
-          ? <p className="compare-window">共同日期窗口 <strong>{dates[0]} 至 {dates.at(-1)}</strong> · {dates.length} 天 · 各雪场当地日期</p>
+          ? <p className="compare-window"><strong>{dates[0]} 至 {dates.at(-1)}</strong> · {dates.length} 天</p>
           : <p role="status">暂无共同可用日期。</p>}
         <div className="table-scroll" tabIndex={0} role="region" aria-label="收藏雪场对比，可横向滚动">
           <table>
             <thead><tr><th scope="col">雪场</th>{columns.map(({ index }) => {
-              const { resort, point, data } = comparing[index]
+              const { resort, point } = comparing[index]
               return <th scope="col" key={resort.id}>
                 {resort.name}
                 <span>{point.name}</span>
-                <span>查询海拔 {elevationLabel(point)} · {resort.timezone}</span>
-                {data && <a href={data.source} target="_blank" rel="noreferrer">预报来源</a>}
+                <span>查询海拔 {elevationLabel(point)}</span>
+                
                 <button className="compare-remove" aria-label={`移除 ${resort.name}`} onClick={() => onToggle(resort.id)}>移除</button>
               </th>
             })}</tr></thead>
@@ -72,8 +73,7 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
             </tbody>
           </table>
         </div>
-        {model === weighted.id && <p className="muted">加权综合 = {weightLabel}；缺一模型时其余权重按比例放大，不足两个模型视为缺失。</p>}
-        <p className="muted">按当前模型的窗口累计降雪从高到低排列。窗口取已返回预报的日期交集，窗口内降雪有缺失的雪场不参与排名。</p>
+        {model === weighted.id && <p className="muted">加权综合 = {weightLabel(weights)} · <a href="#settings">修改权重</a></p>}
       </>}
     </> : <p className="empty">{candidates.length < 2 ? '请先收藏至少两个雪场。' : '请选择至少两个收藏雪场开始对比。'}</p>}
   </section>

@@ -13,8 +13,8 @@ for (const name of readdirSync('worker')) {
   const source = readFileSync(`worker/${name}`, 'utf8')
   writeFileSync(`dist/server/${name}`, source.replaceAll("from '../src/catalog.ts'", "from './catalog.js'").replaceAll("from '../src/weather.ts'", "from './weather.js'"))
 }
-for (const name of ['weather', 'catalog']) {
-  const source = readFileSync(`src/${name}.ts`, 'utf8').replaceAll("from './catalog.ts'", "from './catalog.js'")
+for (const name of ['weather', 'catalog', 'northAmerica']) {
+  const source = readFileSync(`src/${name}.ts`, 'utf8').replace(/from '(\.\/[^']+)\.ts'/g, "from '$1.js'")
   writeFileSync(`dist/server/${name}.js`, stripTypeScriptTypes(source))
 }
 writeFileSync('dist/server/generated.js', `export const assets = new Map(${JSON.stringify(assets)});\nexport const points = new Set(${JSON.stringify(points)});\n`)

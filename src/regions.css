@@ -1,68 +1,37 @@
-.region-page{color:#183747}.region-tools,.atlas-caption,.atlas-scale{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.region-tools{margin:0 0 14px}.region-tools strong{font-variant-numeric:tabular-nums}.atlas{position:relative;isolation:isolate;overflow:hidden;border-radius:16px;border:1px solid #c3d6d9;box-shadow:0 8px 30px #17484b12;margin-bottom:26px}.atlas-map{height:clamp(340px,53vh,610px);background:#dde9e6}.atlas-reset{position:absolute;right:14px;top:14px;z-index:500;box-shadow:0 2px 8px #163b4626}.atlas-caption{background:#143c47;color:#fff;padding:16px 20px}.atlas-caption small{display:block;color:#c9e0df;margin-top:4px}.atlas-scale{gap:8px;font-size:12px}.atlas-scale span{display:flex;align-items:center;gap:4px}.atlas-scale i{width:11px;height:11px;border-radius:50%;border:1px solid #ffffffaa}.region-page table{width:100%;min-width:0;border-collapse:collapse}.region-page td,.region-page th{padding:10px 6px;text-align:left;white-space:normal}.region-page th button{padding:4px;color:#146c74;border:0;text-align:left}.region-page p{line-height:1.6;color:#506673}.region-page h3{margin-bottom:6px}@media(max-width:600px){.region-page table{font-size:12px}.region-tools .controls{width:auto}.region-tools .controls label{flex-basis:auto}.atlas-caption{padding:12px}.atlas-map{height:360px}}
-
-
- .atlas-quality { flex-basis: 100%; justify-content: flex-start; gap: 8px 16px; }
-.region-map-label.leaflet-tooltip {
-  border: 0;
-  border-radius: 6px;
-  padding: 4px 6px;
-  color: #112d37;
-  background: #fffffff2;
-  line-height: 1.25;
-  text-align: center;
-  cursor: pointer;
-}
-.region-map-label strong, .region-map-label span { display: block; }
-@media (max-width: 680px) {
-  .region-map-label.leaflet-tooltip { font-size: 9px; padding: 2px 3px; }
-}
-
-.region-map-label.leaflet-tooltip { opacity: 1 !important; }
-@media (max-width: 680px) {
-  .atlas-map { height: 460px; }
-  .region-map-label.leaflet-tooltip { font-size: 11px; }
-}
-
-.atlas-snow, .atlas-quality {
-  flex-basis: 100%;
-  justify-content: flex-start;
-  gap: 8px 12px;
-}
-.atlas-quality {
-  border-top: 1px solid #ffffff40;
-  padding-top: 12px;
-}
-.atlas-quality span {
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-weight: 600;
-}
-
-.region-snow-total {
-  background: #153943;
-  border-radius: 3px;
-  font-weight: 700;
-}
-.region-quality-status { margin-top: 2px; }
-.atlas-quality .snow-quality-icon, .region-quality-status .snow-quality-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border: 0;
-  border-radius: 4px;
-  background: #fff;
-  font: bold 13px/1 system-ui;
-}
-.region-quality-status .snow-quality-icon + .snow-quality-icon { margin-left: 2px; }
-.snow-quality-icon.powder { color: #168446; }
-.snow-quality-icon.cement { color: #ab5808; }
-.snow-quality-icon.mix { color: #c22b3d; }
-
+.region-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; }
+.region-tools > .controls { margin-left: auto; width: auto; }
 .forecast-periods { display: flex; flex-wrap: wrap; gap: 6px; }
-.forecast-periods button { padding: 7px 11px; font-size: 13px; }
-.forecast-periods button[aria-pressed="true"] {
-  background: #143c47;
-  border-color: #143c47;
-  color: white;
+.forecast-periods button { font-size: 14px; }
+.forecast-periods button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.atlas { position: relative; isolation: isolate; overflow: hidden; margin-bottom: 32px; }
+.atlas-map { height: clamp(400px, 58vh, 660px); background: #e5eef3; font-family: inherit; }
+.atlas-map .leaflet-tile-pane { filter: saturate(.55); }
+.atlas-reset { position: absolute; right: 14px; top: 14px; z-index: 500; }
+.atlas-caption { display: flex; flex-wrap: wrap; gap: 14px 32px; padding: 18px 24px; border-top: 1px solid var(--line); }
+.atlas-caption > div:first-child { flex-basis: 100%; }
+.atlas-caption > div:first-child strong { font-size: 18px; }
+.atlas-caption small { display: block; margin-top: 2px; }
+.atlas-scale { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; }
+.atlas-scale > span { display: flex; align-items: center; gap: 6px; }
+.atlas-snow i { width: 18px; height: 10px; border-radius: 2px; }
+.region-map-label.leaflet-tooltip { opacity: 1 !important; border: 1px solid #b7c9d6; border-radius: 6px; padding: 4px 7px; color: var(--ink); background: #fff; box-shadow: none; font-family: inherit; line-height: 1.25; text-align: center; cursor: pointer; }
+.region-map-label strong, .region-map-label span { display: block; }
+.region-map-label strong { font-weight: 600; }
+.region-map-label .region-snow-total { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.region-quality-status { margin-top: 2px; }
+.snow-quality-icon { display: inline-grid; place-items: center; width: 16px; height: 16px; font: bold 13px/1 system-ui; }
+.snow-quality-icon.powder { color: #126d39; }
+.snow-quality-icon.cement { color: #9a4e05; }
+.snow-quality-icon.mix { color: #b52638; }
+.region-page > p { max-width: 110ch; line-height: 1.7; color: var(--muted); }
+.region-page h2 { margin-bottom: 8px; }
+.region-page h3 { margin: 32px 0 6px; }
+.region-page > .table-scroll { margin: 18px 0; }
+.region-page td, .region-page th { text-align: left; white-space: normal; }
+.region-page th button { border: 0; background: none; padding: 0; min-height: 28px; text-align: left; font-weight: 600; color: var(--blue); }
+@media (max-width: 800px) {
+  .atlas-map { height: 480px; }
+  .atlas-caption { padding: 16px; }
+  .region-map-label.leaflet-tooltip { font-size: 11px; padding: 2px 4px; }
+  .region-map-label .region-snow-total { font-size: 12px; }
 }

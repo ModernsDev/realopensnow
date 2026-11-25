@@ -1,7 +1,7 @@
 import { resorts, queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
 export { resorts } from './catalog.ts'
 export type { Resort } from './catalog.ts'
-export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#087cf0' }, { id: 'gfs_seamless', name: 'GFS', color: '#18b5ba' }, { id: 'icon_seamless', name: 'ICON', color: '#ff9d30' }]
+export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4' }, { id: 'gfs_seamless', name: 'GFS', color: '#23a094' }, { id: 'icon_seamless', name: 'ICON', color: '#ec8a32' }]
 export type Forecast = {
   dates: string[]; daily: Record<string, (number | null)[]>; requested: string; fetched: string
   source: string; elevation: number; timezone: string

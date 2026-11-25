@@ -37,11 +37,11 @@ const labelNames: Record<string, string> = {
 }
 
 const scale = [
-  { min: 40, color: '#168446', numberColor: '#71e99a', label: '≥40' },
-  { min: 15, color: '#8bb83e', numberColor: '#b8eb73', label: '15–40' },
-  { min: 1, color: '#e6b53a', numberColor: '#ffdb52', label: '1–15' },
-  { min: 0, color: '#d14842', numberColor: '#ff9390', label: '不足 1' },
-  { min: -1, color: '#818990', numberColor: '#ced7db', label: '缺测' },
+  { min: 40, color: '#168446', numberColor: '#126d39', label: '≥40' },
+  { min: 15, color: '#8bb83e', numberColor: '#50720f', label: '15–40' },
+  { min: 1, color: '#e6b53a', numberColor: '#8a6000', label: '1–15' },
+  { min: 0, color: '#d14842', numberColor: '#b52f2a', label: '不足 1' },
+  { min: -1, color: '#818990', numberColor: '#5c6870', label: '缺测' },
 ]
 
 export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; selected: string | null; onSelect: (name: string | null) => void }) {
@@ -66,7 +66,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       const { color, numberColor } = scale.find(s => r.floor >= s.min)!
       const picked = r.name === selected
       const shape = L.polygon(r.boundary, {
-        color: '#233b37', weight: picked ? 4 : 2,
+        color: '#27485f', weight: picked ? 4 : 2,
         fillColor: color, fillOpacity: picked ? 0.82 : 0.64,
       }).addTo(layer).on('click', () => onSelect(r.name))
       const qualities = new Set(r.conditions.flatMap(c => c.qualities))
@@ -98,7 +98,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
         L.DomEvent.stopPropagation(event.originalEvent)
         onSelect(r.name)
       })
-      const leader = L.polyline([anchor, anchor], { color: '#233b37', weight: 1, interactive: false }).addTo(layer)
+      const leader = L.polyline([anchor, anchor], { color: '#27485f', weight: 1, interactive: false }).addTo(layer)
       labels.push({ anchor, tooltip, leader })
     }
     const placeLabels = () => {

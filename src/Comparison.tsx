@@ -1,6 +1,6 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
 import { compareForecasts } from './compareForecasts'
-import { fixed, models, snow, weighted, weightLabel, type Forecast } from './weather'
+import { fixed, models, snow, total, weighted, weightLabel, type Forecast } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
@@ -19,6 +19,8 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
   const loading = comparing.some(candidate => candidate.loading)
   const { dates, columns } = compareForecasts(comparing.map(candidate => candidate.data), model)
 
+  const options = models.filter(m => m.id === model || comparing.some(({ data }) => data && total(data, m.id) !== null))
+
   return <section className="detail compare">
     <fieldset className="compare-picker">
       <legend>选择收藏雪场（2–5 个）</legend>
@@ -33,7 +35,7 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
     </fieldset>
     {enough ? <>
       <div className="controls compare-controls">
-        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...models].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...options].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
         <label>降雪单位 <select value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select></label>
         <button onClick={refresh} disabled={loading}>{comparing.some(candidate => candidate.error) ? '重试预报' : '刷新预报'}</button>
       </div>
@@ -71,7 +73,7 @@ export function Comparison({ candidates, selected, onToggle, model, setModel, un
           </table>
         </div>
         {model === weighted.id && <p className="muted">加权综合 = {weightLabel}；缺一模型时其余权重按比例放大，不足两个模型视为缺失。</p>}
-        <p className="muted">按当前模型的窗口累计降雪从高到低排列。窗口取已返回预报的日期交集，窗口内降雪、气温或阵风有缺失的雪场不参与排名。</p>
+        <p className="muted">按当前模型的窗口累计降雪从高到低排列。窗口取已返回预报的日期交集，窗口内降雪有缺失的雪场不参与排名。</p>
       </>}
     </> : <p className="empty">{candidates.length < 2 ? '请先收藏至少两个雪场。' : '请选择至少两个收藏雪场开始对比。'}</p>}
   </section>

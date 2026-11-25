@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { waterburyPoint, type QueryPoint } from './catalog'
-import { models, snow, type Forecast } from './weather'
+import { coreModels, models, snow, type Forecast } from './weather'
 import { ForecastView } from './Forecast'
 
 type Snapshot = { id: number; data: Forecast }
@@ -77,7 +77,7 @@ export function ForecastHistory({ point, unit }: { point: QueryPoint; unit: stri
   return <details className="catalog" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>历史预报与准确性</summary>
     {open && <>
-      <p>保存会请求一次新的三模型预报。历史只包含本站已保存的快照。</p>
+      <p>保存会请求一次新的多模型预报。历史只包含本站已保存的快照。</p>
       <div className="controls"><button onClick={save} disabled={saving}>{saving ? '保存中…' : '获取并保存快照'}</button></div>
       {saved && <p role="status">{saved}</p>}
       {historyError && <p role="alert">{historyError} <button onClick={() => reload(value => value + 1)}>重读历史</button></p>}
@@ -96,7 +96,7 @@ export function ForecastHistory({ point, unit }: { point: QueryPoint; unit: stri
           <p>排除的观测窗 · 测站不符 {accuracy.excluded.station} · 时间窗无法确认 {accuracy.excluded.window} · 缺测、微量或单位不符 {accuracy.excluded.measurement} · 无可用的提前预报 {accuracy.excluded.forecast}</p>
           <div className="table-scroll" tabIndex={0} role="region" aria-label="各模型分提前量误差，可横向滚动">
             <table><thead><tr><th>模型</th><th>提前量</th><th>样本数</th><th>平均偏差 ({unit})</th><th>平均绝对误差 ({unit})</th><th>样本状态</th></tr></thead><tbody>
-              {accuracy.groups.map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, unit)}</td><td>{snow(group.mae, unit)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
+              {accuracy.groups.filter(group => group.count || coreModels.some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, unit)}</td><td>{snow(group.mae, unit)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
             </tbody></table>
           </div>
         </> : <p role="status">正在核对预报与观测…</p>}

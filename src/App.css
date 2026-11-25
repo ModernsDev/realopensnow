@@ -47,14 +47,14 @@ main { padding-block: 24px 32px; min-width: 0; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
 .forecast-context { padding: 18px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
-.model-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 24px 0; padding: 0; }
+.model-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px 0; margin: 16px 24px 0; padding: 0; }
 .model-totals.simple { grid-template-columns: minmax(0, 1fr); }
-.model-totals > div { padding: 4px 20px; border-left: 1px solid var(--line); }
-.model-totals > div:first-child { padding-left: 0; border: 0; }
+.model-totals > div { padding: 4px 12px; border-left: 1px solid var(--line); }
+.model-totals.simple > div { padding-left: 0; border: 0; }
 .model-totals dt { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--muted); }
 .model-totals i, .legend i { width: 10px; height: 10px; border-radius: 2px; }
 .model-totals dd { margin: 0; }
-.model-totals strong { font-size: 34px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.model-totals strong { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .model-totals span { display: block; font-size: 13px; color: var(--muted); }
 .chart-heading { padding: 28px 24px 0; display: flex; gap: 14px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
 .chart-heading h2 { margin: 0; font-size: 19px; }
@@ -62,9 +62,11 @@ main { padding-block: 24px 32px; min-width: 0; }
 .legend span { display: flex; gap: 6px; align-items: center; }
 .chart-scroll { overflow-x: auto; }
 .chart { margin: 18px 24px 24px; display: flex; gap: 18px; }
-.day { flex: 1; min-width: 0; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day { flex: 1; min-width: min-content; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
-.bar-column { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bar-column { flex: 1; min-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bars.compact { gap: 1px; }
+.bars.compact .bar-column { min-width: 6px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
 .bar-column div { min-height: 1px; border-radius: 3px 3px 0 0; }
 

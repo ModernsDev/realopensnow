@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, forecastDates, forecastExpired, forecast, models, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, availableModels, forecastDates, forecastExpired, forecast, models, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -121,4 +121,30 @@ test('weighted blend uses fixed weights, renormalizes over available models and 
   assert.deepEqual(data.dates.map((_, i) => value(data, 'snowfall_sum', 'weighted', i)), [20, 30, null, 0])
   assert.deepEqual(spread(data, 'snowfall_sum', 0), { low: 10, high: 40 })
   assert.equal(spread(data, 'snowfall_sum', 2), null)
+})
+
+test('models without data at a location are hidden and do not block the report or shift the blend', async () => {
+  const original = globalThis.fetch
+  const raw = hours('2026-11-17T08:00:00Z', 168)
+  const now = new Date().toISOString()
+  const start = Date.parse(forecastDates(now, 'America/Denver')[0]) / 1000 - 86400
+  raw.hourly.time = Array.from({ length: 240 }, (_, i) => start + i * 3600)
+  for (const key of Object.keys(raw.hourly)) if (key !== 'time') raw.hourly[key] = raw.hourly.time.map(() => key.startsWith('temp') ? -5 : 1)
+  delete raw.hourly.snowfall_icon_d2
+  delete raw.hourly.temperature_2m_icon_d2
+  delete raw.hourly.wind_gusts_10m_icon_d2
+  raw.hourly.wind_gusts_10m_ecmwf_aifs025_single.fill(null)
+  raw.hourly.snowfall_gfs_hrrr.fill(9).fill(null, 91)
+  try {
+    globalThis.fetch = async () => Response.json(raw)
+    const data = await forecast(resorts[0], resorts[0].points[3])
+    const ids = (field?: string) => availableModels(data, field).map(m => m.id)
+    assert.equal(ids().includes('icon_d2'), false)
+    assert.equal(ids().includes('ecmwf_aifs025_single'), true)
+    assert.equal(ids('wind_gusts_10m_max').includes('ecmwf_aifs025_single'), false)
+    assert.equal(total(data, 'gfs_hrrr'), null)
+    assert.equal(value(data, 'snowfall_sum', 'gfs_hrrr', 0), 216)
+    assert.equal(value(data, 'snowfall_sum', 'weighted', 0), 24)
+    assert.equal('blocked' in data.report, false)
+  } finally { globalThis.fetch = original }
 })

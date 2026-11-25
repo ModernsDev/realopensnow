@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { defaultResortPeriod, forecast, forecastExpired, resortPeriods, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
-import { ForecastView, ModeSwitch, Report } from './Forecast'
+import { ForecastView, ModeSwitch, Report, ReportTile } from './Forecast'
 import { ForecastHistory } from './ForecastHistory'
 import { Observations } from './ResortObservations'
 import { Comparison } from './Comparison'
@@ -153,20 +153,20 @@ function App() {
         <label>降雪单位 <select aria-label="降雪单位" value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select></label>
         <button onClick={refresh} disabled={reportsLoading}>{reportsLoading ? '获取中…' : '刷新雪报'}</button>
       </div> : <p role="status" className="empty">还没有收藏雪场，添加收藏后查看每日雪报。</p>}
-      {tracked.map(r => {
+      {tracked.length > 0 && <div className="report-grid">{tracked.map(r => {
         const p = pointFor(r)
         const k = `${r.id}-${p.id}`
         const unavailable = queryBlockReason(r, p)
         const { data: f, error } = active(k)
-        return <section className="report-card" key={r.id} aria-label={r.name}>
-          <h2>{r.name}</h2>
-          {unavailable ? <p className="empty" role="status">{unavailable}</p>
-            : error ? <div className="empty error" role="alert"><p>每日雪报暂不可用。{error}</p><button onClick={refresh} disabled={reportsLoading}>{pending(k) ? '正在重试…' : '重试'}</button></div>
-            : f ? <Report resort={r} data={f} unit={unit} mode={mode} />
-            : <p className="empty" role="status">正在获取预报…</p>}
-        </section>
-      })}
+        return <article className="report-tile" key={r.id} aria-label={`${r.name} 每日雪报`}>
+          <h2><button onClick={() => { setSelected(r.id); setCreating(false); navigate('resorts') }}>{r.name}</button></h2>
+          {unavailable ? <p className="tile-status" role="status">{unavailable}</p>
+            : error ? <div className="tile-status error" role="alert"><p>暂不可用。{error}</p><button onClick={refresh} disabled={reportsLoading}>{pending(k) ? '正在重试…' : '重试'}</button></div>
+            : f ? <ReportTile resort={r} data={f} unit={unit} mode={mode} />
+            : <p className="tile-status" role="status">正在获取预报…</p>}
+        </article>
+      })}</div>}
     </div>}
-    {view === 'resorts' && !creating && favorites.includes(resort.id) && data && !blocked && !error && <Report resort={resort} data={data} unit={unit} mode={mode} inWorkspace />}</main></>
+    {view === 'resorts' && !creating && favorites.includes(resort.id) && data && !blocked && !error && <Report resort={resort} data={data} unit={unit} mode={mode} />}</main></>
 }
 export default App

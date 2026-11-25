@@ -1,18 +1,15 @@
-import { useRef } from 'react'
 import { fixed, missingModels, modes, models, snow, spread, total, value, weighted, weightLabel, resortPeriods, defaultResortPeriod, slicePeriod, type Period, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
 
 export function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
   return <div className="mode-switch" role="group" aria-label="预报模式">{(Object.keys(modes) as Mode[]).map(m => <button key={m} aria-pressed={mode === m} onClick={() => setMode(m)}>{modes[m]}</button>)}</div>
 }
-export function Report({ resort, data, unit, mode, inWorkspace = false }: { resort: Resort; data: ForecastWithReport; unit: string; mode: Mode; inWorkspace?: boolean }) {
+export function Report({ resort, data, unit, mode }: { resort: Resort; data: ForecastWithReport; unit: string; mode: Mode }) {
   const { report: summary } = data
-  const details = useRef<HTMLDetailsElement>(null)
   if ('blocked' in summary) return <div className="report" role="status"><p>每日雪报暂不可用。{summary.blocked}</p></div>
   const point = resort.points.find(p => p.id === data.query.pointId)!
-  const detailId = `forecast-${resort.id}-${point.id}`
   return <article className="report" aria-label={`${resort.name} 每日雪报`}>
-    {inWorkspace && <h2>每日雪报</h2>}
-    <p>{inWorkspace && `${resort.name} · `}{point.name} · 查询海拔 {data.query.elevation} m</p>
+    <h2>每日雪报</h2>
+    <p>{resort.name} · {point.name} · 查询海拔 {data.query.elevation} m</p>
     <p className="muted">{data.dates[0]}</p>
     {mode === 'simple' ? <>
       <p><strong>当日加权降雪</strong> · {snow(value(data, 'snowfall_sum', weighted.id, 0), unit)} {unit}</p>
@@ -26,10 +23,28 @@ export function Report({ resort, data, unit, mode, inWorkspace = false }: { reso
     <p><strong>当日预报阵风</strong> · 各模型最高 {summary.gust} km/h</p>
     <p><strong>当日预报气温</strong> · 各模型最低至最高 {summary.lowTemp} 至 {summary.highTemp} °C</p>
     </>}
-    
-    <p><a href={`#${detailId}`} onClick={() => { if (details.current) details.current.open = true }}>预报明细</a></p>
-    {!inWorkspace && <details id={detailId} ref={details}><summary>{mode === 'simple' ? '七日加权明细' : '七日各模型明细'}</summary><ForecastView resort={resort} data={data} unit={unit} mode={mode} /></details>}
+    <p><a href={`#forecast-${resort.id}-${point.id}`}>预报明细</a></p>
   </article>
+}
+export function ReportTile({ resort, data, unit, mode }: { resort: Resort; data: ForecastWithReport; unit: string; mode: Mode }) {
+  const { report: summary } = data
+  if ('blocked' in summary) return <p className="tile-status" role="status">{summary.blocked}</p>
+  const point = resort.points.find(p => p.id === data.query.pointId)!
+  const simple = mode === 'simple'
+  const snows = summary.today.map(m => m.snowfall)
+  const today = simple ? snow(value(data, 'snowfall_sum', weighted.id, 0), unit) : `${snow(Math.min(...snows), unit)}–${snow(Math.max(...snows), unit)}`
+  const week = simple ? snow(total(data, weighted.id), unit) : `${snow(summary.lowTotal, unit)}–${snow(summary.highTotal, unit)}`
+  const temps = simple ? `${fixed(value(data, 'temperature_2m_min', weighted.id, 0))} ~ ${fixed(value(data, 'temperature_2m_max', weighted.id, 0))}` : `${summary.lowTemp} ~ ${summary.highTemp}`
+  const gust = simple ? fixed(value(data, 'wind_gusts_10m_max', weighted.id, 0)) : summary.gust
+  return <>
+    <p className="tile-meta">{point.name} · {data.query.elevation} m · {data.dates[0]}</p>
+    <p className="tile-snow"><b>{today}</b> {unit}<span>今日{simple ? '加权' : '模型范围'}</span></p>
+    <dl className="tile-stats">
+      <div><dt>7 天</dt><dd>{week} {unit}</dd></div>
+      <div><dt>气温</dt><dd>{temps} °C</dd></div>
+      <div><dt>阵风</dt><dd>{gust} km/h</dd></div>
+    </dl>
+  </>
 }
 type Series = { id: string; name: string; color: string }
 function SnowChart({ data, series, unit, split }: { data: DailySeries; series: Series[]; unit: string; split: number }) {

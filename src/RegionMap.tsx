@@ -48,12 +48,10 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   useEffect(() => {
-    const m = L.map(container.current!, { scrollWheelZoom: false, zoomSnap: 0.25, minZoom: 2, maxZoom: 12 })
+    const m = L.map(container.current!, { attributionControl: false, scrollWheelZoom: false, zoomSnap: 0.25, minZoom: 2, maxZoom: 12 })
     map.current = m
     m.fitBounds(bounds.pad(0.12))
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '地图 © Esri 及其数据提供方',
-    }).addTo(m)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}').addTo(m)
     const resize = new ResizeObserver(() => { m.invalidateSize(); m.fitBounds(bounds.pad(0.12)) })
     resize.observe(container.current!)
     return () => { resize.disconnect(); m.remove(); map.current = null }
@@ -139,6 +137,6 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
   }, [boundary])
   return <div className="atlas"><div className="atlas-map" ref={container} aria-label="北美西部山地降雪地图" />
     <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>西部全景</button>
-    <div className="atlas-caption"><div><strong>{active?.name ?? '累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '颜色取两个代表点的较低值（cm），边线为山系概略范围'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="累计新雪"><strong>累计新雪（cm）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
+    <div className="atlas-caption"><div><strong>{active?.name ?? '累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '两个代表点中的较低值'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="累计新雪"><strong>累计新雪（cm）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
   </div>
 }

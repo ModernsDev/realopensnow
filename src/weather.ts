@@ -1,4 +1,4 @@
-import { resorts, queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
+import { queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
 export { resorts } from './catalog.ts'
 export type { Resort } from './catalog.ts'
 export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4', weight: 50 }, { id: 'gfs_seamless', name: 'GFS', color: '#23a094', weight: 25 }, { id: 'icon_seamless', name: 'ICON', color: '#ec8a32', weight: 25 }]
@@ -23,7 +23,7 @@ export type Forecast = {
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
 export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights'>
-export type ForecastWithReport = Forecast & { past: DailySeries; report: ReturnType<typeof dailyReport>; reportGenerated: string }
+export type ForecastWithReport = Forecast & { past: DailySeries; report: ReturnType<typeof dailyReport> }
 const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
@@ -85,7 +85,7 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
       })
     }
     const fields = Object.entries(daily).filter(([key]) => key.endsWith(`_${model.id}`)).flatMap(([, values]) => values)
-    modelStatus[model.id] = fields.every(v => v !== null) ? '七日完整' : fields.some(v => v !== null) ? '部分缺失（含小时缺测或单位异常），— 不参与完整周期总量' : '不可用（缺测或单位异常）'
+    modelStatus[model.id] = fields.every(v => v !== null) ? '七日完整' : fields.some(v => v !== null) ? '部分缺失' : '不可用'
   }
   return { daily, modelStatus }
 }
@@ -110,7 +110,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     if (!response.ok) throw new Error(`天气服务请求失败（${response.status}）`)
     data = await response.json()
   } catch (error) {
-    if (hosted && !signal?.aborted) {
+    if (hosted && !resort.custom && !signal?.aborted) {
       const kind = error instanceof Error && error.message.includes('429') ? 'rate_limit' : 'request'
       navigator.sendBeacon(`/api/weather-error/${point.id}?kind=${kind}`)
     }
@@ -120,8 +120,8 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const batch = { ...forecastBatch(data, resort, point, requested, fetched), source }
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
-  const report = dailyReport(batch)
-  return { ...batch, past, report, reportGenerated: new Date().toISOString() }
+  const report = dailyReport(batch, resort)
+  return { ...batch, past, report }
 }
 
 export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string): Forecast {
@@ -135,20 +135,19 @@ export function forecastBatch(data: { error?: boolean; elevation: number; latitu
   return { dates, ...aggregated, requested, fetched, source, elevation, timezone: resort.timezone, grid: { lat: data.latitude, lon: data.longitude }, query: { resortId: resort.id, pointId: point.id, lat, lon, elevation, timezone: resort.timezone } }
 }
 
-export function reportBlockReason(data: Forecast) {
+export function reportBlockReason(data: Forecast, resort: Resort) {
   const location = data.query
-  const resort = resorts.find(r => r.id === location?.resortId)
-  const point = resort?.points.find(p => p.id === location?.pointId)
-  if (!resort || !point) return '缺少已核实查询点，暂不生成雪报。'
+  if (location?.resortId !== resort.id) return '查询点与当前地点不符，暂不生成雪报。'
+  const point = resort.points.find(p => p.id === location.pointId)
   const blocked = queryBlockReason(resort, point)
   if (blocked) return blocked
-  const coordinates = point.coordinates.value!
-  if (location.lat !== coordinates.lat || location.lon !== coordinates.lon || location.elevation !== point.elevation.value || location.timezone !== resort.timezone) return '查询点证据已变更，请重新获取预报后生成雪报。'
+  const coordinates = point!.coordinates.value!
+  if (location.lat !== coordinates.lat || location.lon !== coordinates.lon || location.elevation !== point!.elevation.value || location.timezone !== resort.timezone) return '查询点证据已变更，请重新获取预报后生成雪报。'
   return null
 }
 
-export function dailyReport(data: Forecast) {
-  const blocked = reportBlockReason(data)
+export function dailyReport(data: Forecast, resort: Resort) {
+  const blocked = reportBlockReason(data, resort)
   if (blocked) return { blocked } as const
   if (data.dates.length !== 7) return { blocked: '预报未覆盖完整的七个当地日期。' } as const
   const gaps = models.flatMap(model => {

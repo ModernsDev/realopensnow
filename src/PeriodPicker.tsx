@@ -1,4 +1,5 @@
-import { forecastPeriods, pastPeriods, type Period } from './weather'
+import type { CSSProperties } from 'react'
+import { forecastPeriods, timeline, type Period } from './weather'
 
 export function PeriodPicker({ period, onSelect, periods = forecastPeriods }: { period: number; onSelect: (period: number) => void; periods?: readonly Period[] }) {
   return <div className="forecast-periods" role="group" aria-label="预报时段">
@@ -6,16 +7,21 @@ export function PeriodPicker({ period, onSelect, periods = forecastPeriods }: { 
   </div>
 }
 
-export function HorizonPicker({ past, future, onPast, onFuture }: { past: number | null; future: number | null; onPast: (past: number | null) => void; onFuture: (future: number | null) => void }) {
-  return <div className="horizon-picker">
-    <div className="horizon-group" role="group" aria-label="过去">
-      <small>过去</small>
-      <div className="forecast-periods">{pastPeriods.map(([label], index) => <button key={label} aria-pressed={past === index} onClick={() => onPast(past === index && future !== null ? null : index)}>{label}</button>)}</div>
+const offsetLabel = (n: number) => n === 0 ? '今天' : n === -1 ? '昨天' : n === 1 ? '明天' : n < 0 ? `${-n} 天前` : `${n} 天后`
+
+export function TimelinePicker({ range: [from, to], today, onChange }: { range: [number, number]; today: string; onChange: (range: [number, number]) => void }) {
+  const span = timeline.max - timeline.min
+  const position = (n: number) => (n - timeline.min) / span
+  const date = (n: number) => new Date(Date.parse(`${today}T12:00:00Z`) + n * 86400000).toISOString().slice(5, 10)
+  const ticks = Array.from({ length: span + 1 }, (_, i) => timeline.min + i)
+  return <div className="timeline" role="group" aria-label="日期范围">
+    <p className="timeline-head" aria-live="polite"><strong>{date(from)} 至 {date(to)}</strong> · {offsetLabel(from)} 至 {offsetLabel(to)} · 共 {to - from + 1} 天</p>
+    <div className="timeline-track" style={{ '--from': position(from), '--to': position(to), '--today': position(0) } as CSSProperties}>
+      <div className="timeline-fill" />
+      <div className="timeline-today" />
+      <input type="range" aria-label="开始日期" aria-valuetext={`${date(from)} ${offsetLabel(from)}`} min={timeline.min} max={timeline.max} value={from} onChange={e => onChange([Math.min(Number(e.target.value), to), to])} />
+      <input type="range" aria-label="结束日期" aria-valuetext={`${date(to)} ${offsetLabel(to)}`} min={timeline.min} max={timeline.max} value={to} onChange={e => onChange([from, Math.max(Number(e.target.value), from)])} />
     </div>
-    <div className="horizon-divider" aria-hidden="true" />
-    <div className="horizon-group" role="group" aria-label="未来">
-      <small>未来</small>
-      <div className="forecast-periods">{forecastPeriods.map(([label], index) => <button key={label} aria-pressed={future === index} onClick={() => onFuture(future === index && past !== null ? null : index)}>{label}</button>)}</div>
-    </div>
+    <div className="timeline-ticks" aria-hidden="true">{ticks.map(n => <span key={n} className={n === 0 ? 'today' : n % 7 === 0 ? 'week' : undefined} style={{ left: `calc(${position(n)} * (100% - 20px) + 10px)` }}>{n === 0 ? '今天' : n % 7 === 0 ? date(n) : ''}</span>)}</div>
   </div>
 }

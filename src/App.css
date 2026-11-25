@@ -78,20 +78,37 @@ main { padding-block: 24px 32px; min-width: 0; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
 .detail-periods { padding: 16px 24px 0; }
-.horizon-picker { display: flex; align-items: stretch; gap: 16px; }
-.horizon-group { display: grid; gap: 6px; align-content: start; }
-.horizon-group > small { color: var(--muted); font-size: 12px; }
-.horizon-group:last-child { flex: 1; min-width: 0; }
-.horizon-divider { flex: none; width: 0; border-left: 2px dashed var(--line-strong); }
+.timeline { max-width: 760px; }
+.timeline-head { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
+.timeline-head strong { color: var(--ink); font-size: 16px; }
+.timeline-track { position: relative; height: 28px; }
+.timeline-track::before, .timeline-fill { content: ""; position: absolute; top: 12px; height: 4px; border-radius: 2px; }
+.timeline-track::before { left: 10px; right: 10px; background: var(--line); }
+.timeline-fill { left: calc(var(--from) * (100% - 20px) + 10px); width: calc((var(--to) - var(--from)) * (100% - 20px)); background: var(--blue); }
+.timeline-today { position: absolute; top: 2px; bottom: 2px; left: calc(var(--today) * (100% - 20px) + 10px); border-left: 2px dashed var(--line-strong); }
+.timeline input { position: absolute; inset: 0; width: 100%; height: 28px; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: none; appearance: none; pointer-events: none; }
+.timeline input::-webkit-slider-runnable-track { background: none; }
+.timeline input::-webkit-slider-thumb { appearance: none; box-sizing: border-box; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--blue); pointer-events: auto; cursor: grab; }
+.timeline input::-moz-range-thumb { box-sizing: border-box; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--blue); pointer-events: auto; cursor: grab; }
+.timeline input::-moz-range-track { background: none; }
+.timeline input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--blue); outline-offset: 2px; }
+.timeline-ticks { position: relative; height: 18px; font-size: 11px; color: var(--muted); }
+.timeline-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.timeline-ticks span::before { content: ""; position: absolute; left: 50%; top: -6px; height: 4px; border-left: 1px solid var(--line-strong); }
+.timeline-ticks span:first-child { transform: none; }
+.timeline-ticks span:first-child::before { left: 0; }
+.timeline-ticks span:last-child { transform: translateX(-100%); }
+.timeline-ticks span:last-child::before { left: auto; right: 0; }
+.timeline-ticks .today { color: var(--blue); font-weight: 600; }
 .forecast-context { padding: 18px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
-.model-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 24px 0; padding: 0; }
+.model-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px 0; margin: 16px 24px 0; padding: 0; }
 .model-totals.simple { grid-template-columns: minmax(0, 1fr); }
-.model-totals > div { padding: 4px 20px; border-left: 1px solid var(--line); }
-.model-totals > div:first-child { padding-left: 0; border: 0; }
+.model-totals > div { padding: 4px 12px; border-left: 1px solid var(--line); }
+.model-totals.simple > div { padding-left: 0; border: 0; }
 .model-totals dt { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--muted); }
 .model-totals i, .legend i { width: 10px; height: 10px; border-radius: 2px; }
 .model-totals dd { margin: 0; }
-.model-totals strong { font-size: 34px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.model-totals strong { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .model-totals span { display: block; font-size: 13px; color: var(--muted); }
 .chart-heading { padding: 28px 24px 0; display: flex; gap: 14px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
 .chart-heading h2 { margin: 0; font-size: 19px; }
@@ -109,7 +126,9 @@ main { padding-block: 24px 32px; min-width: 0; }
 tr.past > * { color: var(--muted); }
 tr.today > * { border-top: 2px solid var(--blue); }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
-.bar-column { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bar-column { flex: 1; min-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bars.compact { gap: 1px; }
+.bars.compact .bar-column { min-width: 6px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
 .bar-column div { min-height: 1px; border-radius: 3px 3px 0 0; }
 
@@ -228,8 +247,6 @@ td:first-child, th:first-child { text-align: left; }
   .model-totals > div { padding: 4px 8px 4px 10px; }
   .model-totals strong { font-size: 25px; }
   .detail-periods { padding-inline: 16px; }
-  .horizon-picker { flex-direction: column; gap: 10px; }
-  .horizon-divider { width: auto; border-left: 0; border-top: 2px dashed var(--line-strong); }
   .controls { width: 100%; }
   .controls select[aria-label="海拔"] { flex: 1; width: 0; }
   .controls label:has([aria-label="海拔"]) { flex-basis: 100%; }

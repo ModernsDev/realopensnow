@@ -1,6 +1,6 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
 import { compareForecasts } from './compareForecasts'
-import { fixed, models, snow, weighted, weightLabel, type Forecast, type Weights } from './weather'
+import { fixed, models, snow, total, weighted, weightLabel, type Forecast, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
@@ -20,6 +20,8 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
   const loading = comparing.some(candidate => candidate.loading)
   const { dates, columns } = compareForecasts(comparing.map(candidate => candidate.data), model)
 
+  const options = models.filter(m => m.id === model || comparing.some(({ data }) => data && total(data, m.id) !== null))
+
   return <section className="detail compare">
     <fieldset className="compare-picker">
       <legend>选择收藏雪场（2–5 个）</legend>
@@ -34,7 +36,7 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
     </fieldset>
     {enough ? <>
       <div className="controls compare-controls">
-        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...models].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+        <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...options].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
         <label>降雪单位 <select value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select></label>
         <button onClick={refresh} disabled={loading}>{comparing.some(candidate => candidate.error) ? '重试预报' : '刷新预报'}</button>
       </div>

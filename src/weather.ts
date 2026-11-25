@@ -1,19 +1,34 @@
 import { queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
 export { resorts } from './catalog.ts'
 export type { Resort } from './catalog.ts'
-export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4', weight: 50 }, { id: 'gfs_seamless', name: 'GFS', color: '#23a094', weight: 25 }, { id: 'icon_seamless', name: 'ICON', color: '#ec8a32', weight: 25 }]
+export const models = [
+  { id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4', weight: 50 },
+  { id: 'gfs_seamless', name: 'GFS', color: '#23a094', weight: 25 },
+  { id: 'icon_seamless', name: 'ICON', color: '#ec8a32', weight: 25 },
+  { id: 'ecmwf_aifs025_single', name: 'AIFS', color: '#7aa7ee', weight: 0 },
+  { id: 'ncep_aigfs025', name: 'AIGFS', color: '#7bd0b8', weight: 0 },
+  { id: 'ncep_nbm_conus', name: 'NBM', color: '#7a4fb5', weight: 0 },
+  { id: 'gfs_hrrr', name: 'HRRR', color: '#c43d6b', weight: 0 },
+  { id: 'gem_global', name: 'GDPS', color: '#8a6d3b', weight: 0 },
+  { id: 'gem_regional', name: 'RDPS', color: '#c2a25a', weight: 0 },
+  { id: 'gem_hrdps_continental', name: 'HRDPS', color: '#5c6f7f', weight: 0 },
+  { id: 'icon_eu', name: 'ICON-EU', color: '#f2bd85', weight: 0 },
+  { id: 'icon_d2', name: 'ICON-D2', color: '#a8501a', weight: 0 },
+]
+export const coreModels = models.filter(m => m.weight > 0)
+export const availableModels = (f: DailySeries, field?: string) => models.filter(m => (field ? [field] : ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
 export const weighted = { id: 'weighted', name: '加权综合', color: '#1559b7' }
 export const modes = { simple: '简化', multi: '多模型比较' } as const
 export type Mode = keyof typeof modes
 export type Weights = Record<string, number>
-export const defaultWeights: Weights = Object.fromEntries(models.map(m => [m.id, m.weight]))
+export const defaultWeights: Weights = Object.fromEntries(coreModels.map(m => [m.id, m.weight]))
 export function weightShares(weights: Weights): Weights {
-  const sum = models.reduce((n, m) => n + weights[m.id], 0)
-  return Object.fromEntries(models.map(m => [m.id, Math.round(weights[m.id] / sum * 1000) / 10]))
+  const sum = coreModels.reduce((n, m) => n + weights[m.id], 0)
+  return Object.fromEntries(coreModels.map(m => [m.id, Math.round(weights[m.id] / sum * 1000) / 10]))
 }
 export function weightLabel(weights: Weights = defaultWeights) {
   const shares = weightShares(weights)
-  return models.map(m => `${m.name} ${shares[m.id]}%`).join(' · ')
+  return coreModels.map(m => `${m.name} ${shares[m.id]}%`).join(' · ')
 }
 export type Forecast = {
   weights?: Weights
@@ -35,7 +50,8 @@ export const forecastPeriods = [
 ] as const
 export const defaultPeriod = 4
 export type Period = readonly [string, number, number]
-export const pastPeriods = [['过去 7 天', 7], ['过去 3 天', 3], ['昨天', 1]] as const
+export const timeline = { min: -7, max: 14 } as const
+export const defaultRange: [number, number] = [-7, 6]
 const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
@@ -43,7 +59,7 @@ const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap
 export function value(f: DailySeries, field: string, model: string, i: number): number | null {
   if (model !== weighted.id) return f.daily[`${field}_${model}`]?.[i] ?? null
   const weights = f.weights ?? defaultWeights
-  const enabled = models.filter(m => weights[m.id] > 0).length
+  const enabled = coreModels.filter(m => weights[m.id] > 0).length
   const available = modelValues(f, field, i).filter(m => weights[m.id] > 0)
   if (available.length < Math.min(2, enabled)) return null
   return available.reduce((sum, m) => sum + m.n * weights[m.id], 0) / available.reduce((sum, m) => sum + weights[m.id], 0)
@@ -52,7 +68,7 @@ export function spread(f: DailySeries, field: string, i: number) {
   const values = modelValues(f, field, i).map(m => m.n)
   return values.length < 2 ? null : { low: Math.min(...values), high: Math.max(...values) }
 }
-export const missingModels = (f: DailySeries, i: number) => models.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
+export const missingModels = (f: DailySeries, i: number) => coreModels.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
 export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
 export function total(f: DailySeries, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
@@ -76,6 +92,11 @@ function statuses(daily: Forecast['daily']): Forecast['modelStatus'] {
 export function slicePeriod<T extends DailySeries>(data: T, start: number, end: number): T & Pick<Forecast, 'modelStatus'> {
   const daily = Object.fromEntries(Object.entries(data.daily).map(([key, values]) => [key, values.slice(start, end)]))
   return { ...data, dates: data.dates.slice(start, end), daily, modelStatus: statuses(daily) }
+}
+export function rangeSeries(data: Forecast & { past?: DailySeries; extended?: Forecast }, from: number, to: number) {
+  const past = data.past && from < 0 ? slicePeriod({ ...data.past, weights: data.weights }, data.past.dates.length + from, data.past.dates.length + Math.min(to, -1) + 1) : undefined
+  const future = to >= 0 ? { ...slicePeriod(data.extended ?? data, Math.max(from, 0), to + 1), weights: data.weights } : undefined
+  return { past, future }
 }
 export function pastDates(requested: string, timezone: string) {
   const start = localDate(Date.parse(requested), timezone)
@@ -121,7 +142,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-  const source = forecastSource(lat, lon, elevation, resort.timezone, 14, 8)
+  const source = forecastSource(lat, lon, elevation, resort.timezone, 15, 8)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
   let data
   try {
@@ -137,7 +158,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     throw error
   }
   const fetched = new Date().toISOString()
-  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 14), source }
+  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 15), source }
   const batch = slicePeriod(extended, 0, 7)
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
@@ -171,7 +192,7 @@ export function dailyReport(data: Forecast, resort: Resort) {
   const blocked = reportBlockReason(data, resort)
   if (blocked) return { blocked } as const
   if (data.dates.length !== 7) return { blocked: '预报未覆盖完整的七个当地日期。' } as const
-  const gaps = models.flatMap(model => {
+  const gaps = coreModels.flatMap(model => {
     const fields = [
       ['降雪', ['snowfall_sum']],
       ['阵风', ['wind_gusts_10m_max']],
@@ -181,20 +202,14 @@ export function dailyReport(data: Forecast, resort: Resort) {
     return missing.length ? [`${model.name} ${missing.map(([label]) => label).join('、')}`] : []
   })
   if (gaps.length) return { blocked: `七日预报数据不完整，缺少 ${gaps.join('；')}。` } as const
-  const today = models.map(({ id, name }) => ({
-    name,
-    snowfall: value(data, 'snowfall_sum', id, 0)!,
-    gust: value(data, 'wind_gusts_10m_max', id, 0)!,
-    minTemp: value(data, 'temperature_2m_min', id, 0)!,
-    maxTemp: value(data, 'temperature_2m_max', id, 0)!,
-    total: total(data, id)!,
-  }))
+  const today = (field: string) => modelValues(data, field, 0).map(m => m.n)
+  const totals = models.map(m => total(data, m.id)).filter(n => n !== null)
   return {
-    today,
-    lowTotal: Math.min(...today.map(model => model.total)),
-    highTotal: Math.max(...today.map(model => model.total)),
-    gust: Math.max(...today.map(model => model.gust)),
-    lowTemp: Math.min(...today.map(model => model.minTemp)),
-    highTemp: Math.max(...today.map(model => model.maxTemp)),
+    today: modelValues(data, 'snowfall_sum', 0).map(({ name, n }) => ({ name, snowfall: n })),
+    lowTotal: Math.min(...totals),
+    highTotal: Math.max(...totals),
+    gust: Math.max(...today('wind_gusts_10m_max')),
+    lowTemp: Math.min(...today('temperature_2m_min')),
+    highTemp: Math.max(...today('temperature_2m_max')),
   }
 }

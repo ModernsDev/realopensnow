@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { models } from '../src/weather.ts'
 import { waterburyPoint } from '../src/catalog.ts'
 import { observationWindow, pairedSnow, summarizeAccuracy } from '../worker/accuracy.mjs'
 import { captureSnapshot } from '../worker/forecast-snapshots.mjs'
@@ -70,7 +71,7 @@ test('scores count a window once per model and lead, use only forecasts acquired
     snapshot(window.start - 2 * hour, 1),
     snapshot(window.start - 25 * hour, 0.125),
   ], [ending, previous], now)
-  assert.equal(result.groups.length, 21)
+  assert.equal(result.groups.length, models.length * 7)
   const score = (model: string, lead: number) => result.groups.find(group => group.model === model && group.lead === lead)
   assert.deepEqual(score('ecmwf_ifs025', 0), { model: 'ecmwf_ifs025', lead: 0, count: 1, bias: 6 - 5.08, mae: 6 - 5.08, insufficient: true })
   assert.deepEqual(score('ecmwf_ifs025', 1), { model: 'ecmwf_ifs025', lead: 1, count: 1, bias: 3 - 5.08, mae: 5.08 - 3, insufficient: true })

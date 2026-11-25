@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, pastDates, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -133,6 +133,32 @@ test('weighted blend uses fixed weights, renormalizes over available models and 
   assert.equal(spread(data, 'snowfall_sum', 2), null)
 })
 
+test('models without data at a location are hidden and do not block the report or shift the blend', async () => {
+  const original = globalThis.fetch
+  const raw = hours('2026-11-17T08:00:00Z', 168)
+  const now = new Date().toISOString()
+  const start = Date.parse(forecastDates(now, 'America/Denver')[0]) / 1000 - 86400
+  raw.hourly.time = Array.from({ length: 240 }, (_, i) => start + i * 3600)
+  for (const key of Object.keys(raw.hourly)) if (key !== 'time') raw.hourly[key] = raw.hourly.time.map(() => key.startsWith('temp') ? -5 : 1)
+  delete raw.hourly.snowfall_icon_d2
+  delete raw.hourly.temperature_2m_icon_d2
+  delete raw.hourly.wind_gusts_10m_icon_d2
+  raw.hourly.wind_gusts_10m_ecmwf_aifs025_single.fill(null)
+  raw.hourly.snowfall_gfs_hrrr.fill(9).fill(null, 91)
+  try {
+    globalThis.fetch = async () => Response.json(raw)
+    const data = await forecast(resorts[0], resorts[0].points[3])
+    const ids = (field?: string) => availableModels(data, field).map(m => m.id)
+    assert.equal(ids().includes('icon_d2'), false)
+    assert.equal(ids().includes('ecmwf_aifs025_single'), true)
+    assert.equal(ids('wind_gusts_10m_max').includes('ecmwf_aifs025_single'), false)
+    assert.equal(total(data, 'gfs_hrrr'), null)
+    assert.equal(value(data, 'snowfall_sum', 'gfs_hrrr', 0), 216)
+    assert.equal(value(data, 'snowfall_sum', 'weighted', 0), 24)
+    assert.equal('blocked' in data.report, false)
+  } finally { globalThis.fetch = original }
+})
+
 test('periods beyond a model horizon stay missing while nearer periods keep complete totals', () => {
   const raw = hours('2026-11-17T08:00:00Z', 14 * 24)
   raw.hourly.snowfall_icon_seamless.fill(null, 1 + 7 * 24 + 1)
@@ -147,4 +173,16 @@ test('periods beyond a model horizon stay missing while nearer periods keep comp
   assert.equal(total(second, 'icon_seamless'), null)
   assert.ok(Math.abs(total(second, 'gfs_seamless')! - 7 * 24 * 2.54) < 1e-9)
   assert.ok(Math.abs(total(slicePeriod(data, 1, 2), 'icon_seamless')! - 24 * 2.54) < 1e-9)
+})
+
+test('timeline ranges split into past days before today and forecast days from today', () => {
+  const day = (dates: string[]) => ({ dates, daily: { snowfall_sum_gfs_seamless: dates.map((_, i) => i) } })
+  const past = day(['p7', 'p6', 'p5', 'p4', 'p3', 'p2', 'p1'])
+  const extended = { ...day(Array.from({ length: 15 }, (_, i) => `f${i}`)), modelStatus: {} } as unknown as Forecast
+  const data = { ...extended, past, extended }
+  const dates = (from: number, to: number) => { const r = rangeSeries(data, from, to); return [r.past?.dates.join() ?? null, r.future?.dates.join() ?? null] }
+  assert.deepEqual(dates(-7, 6), ['p7,p6,p5,p4,p3,p2,p1', 'f0,f1,f2,f3,f4,f5,f6'])
+  assert.deepEqual(dates(-3, -2), ['p3,p2', null])
+  assert.deepEqual(dates(-1, 0), ['p1', 'f0'])
+  assert.deepEqual(dates(8, 14), [null, 'f8,f9,f10,f11,f12,f13,f14'])
 })

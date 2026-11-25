@@ -36,11 +36,11 @@ export function value(f: DailySeries, field: string, model: string, i: number): 
   if (available.length < Math.min(2, enabled)) return null
   return available.reduce((sum, m) => sum + m.n * weights[m.id], 0) / available.reduce((sum, m) => sum + weights[m.id], 0)
 }
-export function spread(f: Forecast, field: string, i: number) {
+export function spread(f: DailySeries, field: string, i: number) {
   const values = modelValues(f, field, i).map(m => m.n)
   return values.length < 2 ? null : { low: Math.min(...values), high: Math.max(...values) }
 }
-export const missingModels = (f: Forecast, i: number) => models.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
+export const missingModels = (f: DailySeries, i: number) => models.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
 export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
 export function total(f: DailySeries, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))

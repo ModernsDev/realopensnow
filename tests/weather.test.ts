@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, forecastDates, forecastExpired, forecast, models, snow, total, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, forecastDates, forecastExpired, forecast, models, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -108,4 +108,17 @@ test('forecast expires at six hours or when the resort advances to its next civi
   assert.equal(forecastExpired(data, Date.parse('2026-11-17T14:59:59Z')), false)
   assert.equal(forecastExpired(data, Date.parse('2026-11-17T15:00:00Z')), true)
   assert.equal(forecastExpired({ ...data, timezone: 'America/Denver' }, Date.parse('2026-11-17T18:00:00Z')), true)
+})
+
+test('weighted blend uses fixed weights, renormalizes over available models and needs at least two', () => {
+  const daily = {
+    snowfall_sum_ecmwf_ifs025: [10, null, null, 0],
+    snowfall_sum_gfs_seamless: [20, 20, null, 0],
+    snowfall_sum_icon_seamless: [40, 40, 40, 0],
+  }
+  const data = { dates: ['a', 'b', 'c', 'd'], daily } as unknown as Forecast
+  assert.equal(models.reduce((sum, m) => sum + m.weight, 0), 100)
+  assert.deepEqual(data.dates.map((_, i) => value(data, 'snowfall_sum', 'weighted', i)), [20, 30, null, 0])
+  assert.deepEqual(spread(data, 'snowfall_sum', 0), { low: 10, high: 40 })
+  assert.equal(spread(data, 'snowfall_sum', 2), null)
 })

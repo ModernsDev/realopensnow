@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { forecast, forecastExpired, resorts, type ForecastWithReport } from './weather'
-import { ForecastView, Report } from './Forecast'
+import { forecast, forecastExpired, resorts, weighted, type ForecastWithReport, type Mode } from './weather'
+import { ForecastView, ModeSwitch, Report } from './Forecast'
 import { ForecastHistory } from './ForecastHistory'
 import { CatalogDetails } from './CatalogDetails'
 import { Observations } from './ResortObservations'
@@ -25,7 +25,8 @@ function App() {
   const [pointIds, setPointIds] = useState<Record<string, string>>({})
   const pointFor = (r: typeof resorts[number]) => r.points.find(p => p.id === pointIds[r.id]) ?? r.points.find(p => !queryBlockReason(r, p)) ?? r.points[0]
   const [comparisonIds, setComparisonIds] = useState(() => favorites.slice(0, 5))
-  const [comparisonModel, setComparisonModel] = useState('ecmwf_ifs025')
+  const [comparisonModel, setComparisonModel] = useState(weighted.id)
+  const [mode, setMode] = useState<Mode>('simple')
   const [unit, setUnit] = useState('cm')
   const [view, setView] = useState(currentView)
   const navigate = (next: View) => {
@@ -95,7 +96,7 @@ function App() {
   const listed = searchResorts(search).filter(r => adding || favorites.includes(r.id))
   return <><header className="topbar"><div className="topbar-inner"><a className="brand" href="/"><img src="/favicon.svg" alt="" />RealOpenSnow</a><nav aria-label="主导航">{(Object.keys(views) as View[]).map(name => <button aria-current={view === name ? 'page' : undefined} className={view === name ? 'active' : ''} onClick={() => navigate(name)} key={name}>{views[name]}</button>)}</nav><div className="actions"><input aria-label="搜索雪场" placeholder="搜索雪场" value={search} onChange={e => { setSearch(e.target.value); setAdding(true); navigate('resorts') }} /><button className="primary" onClick={() => { setAdding(!adding); setSearch(''); navigate('resorts') }}>{adding ? '返回收藏' : '添加雪场'}</button></div></div></header><div className="page-head"><Suspense><SnowMountain /></Suspense><div className="page-head-inner"><h1>{views[view]}</h1><p>多模型预报，追踪每一场雪</p></div></div><main>
     {favoriteState.error && <div role="alert" className="empty error">{favoriteState.error}<button onClick={() => setFavoriteState({ ids: favorites, error: saveFavorites(favorites, () => localStorage) })}>重试保存收藏</button></div>}
-    {view === 'regions' ? <Regions /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{listed.length ? listed.map(r => <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => setSelected(r.id)}><strong>{r.name}</strong><span>{r.region}</span><span>{r.points.filter(p => !queryBlockReason(r, p)).length} 个可用查询点 · {r.areas.length} 个目录分区</span></button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div>) : <p className="empty">{search.trim() ? '没有匹配雪场，请调整名称或地区。' : '还没有收藏雪场，点击“添加雪场”开始追踪。'}</p>}<p className="muted footnote">首批 6 个雪场目录项；待核实点暂不生成预报。</p></section>{!adding && !favorites.length ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><h2>{resort.name}</h2><div className="controls"><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p)}</option>)}</select></label><select aria-label="降雪单位" value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select><button onClick={refresh} disabled={pending(key) || !!blocked}>{pending(key) ? '获取中…' : '刷新'}</button></div></div>{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}<button onClick={refresh} disabled={pending(key)}>{pending(key) ? '正在重试…' : '重试'}</button>{pending(key) && <p role="status">正在重试，成功后更新预报。</p>}</div> : data ? <ForecastView data={data} unit={unit} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取真实天气预报…</p>}<Observations key={resort.id} resort={resort} unit={unit} now={now} />{!blocked && <ForecastHistory key={point.id} point={point} unit={unit} />}<CatalogDetails resort={resort} point={point} /></section>}</div> : view === 'compare' ? <Comparison
+    {view === 'regions' ? <Regions /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{listed.length ? listed.map(r => <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => setSelected(r.id)}><strong>{r.name}</strong><span>{r.region}</span><span>{r.points.filter(p => !queryBlockReason(r, p)).length} 个可用查询点 · {r.areas.length} 个目录分区</span></button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div>) : <p className="empty">{search.trim() ? '没有匹配雪场，请调整名称或地区。' : '还没有收藏雪场，点击“添加雪场”开始追踪。'}</p>}<p className="muted footnote">首批 6 个雪场目录项；待核实点暂不生成预报。</p></section>{!adding && !favorites.length ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><h2>{resort.name}</h2><div className="controls"><ModeSwitch mode={mode} setMode={setMode} /><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p)}</option>)}</select></label><select aria-label="降雪单位" value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select><button onClick={refresh} disabled={pending(key) || !!blocked}>{pending(key) ? '获取中…' : '刷新'}</button></div></div>{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}<button onClick={refresh} disabled={pending(key)}>{pending(key) ? '正在重试…' : '重试'}</button>{pending(key) && <p role="status">正在重试，成功后更新预报。</p>}</div> : data ? <ForecastView data={data} unit={unit} mode={mode} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取真实天气预报…</p>}<Observations key={resort.id} resort={resort} unit={unit} now={now} />{!blocked && <ForecastHistory key={point.id} point={point} unit={unit} />}<CatalogDetails resort={resort} point={point} /></section>}</div> : view === 'compare' ? <Comparison
       candidates={tracked.map(r => {
         const point = pointFor(r)
         const k = `${r.id}-${point.id}`
@@ -112,6 +113,7 @@ function App() {
       refresh={refresh}
     /> : <div>
       {tracked.length ? <div className="controls">
+        <ModeSwitch mode={mode} setMode={setMode} />
         <label>降雪单位 <select aria-label="降雪单位" value={unit} onChange={e => setUnit(e.target.value)}><option>cm</option><option>in</option></select></label>
         <button onClick={refresh} disabled={reportsLoading}>{reportsLoading ? '获取中…' : '刷新雪报'}</button>
       </div> : <p role="status" className="empty">还没有收藏雪场，添加收藏后查看每日雪报。</p>}
@@ -124,11 +126,11 @@ function App() {
           <h2>{r.name}</h2>
           {unavailable ? <p className="empty" role="status">{unavailable}</p>
             : error ? <div className="empty error" role="alert"><p>每日雪报暂不可用。{error}</p><button onClick={refresh} disabled={reportsLoading}>{pending(k) ? '正在重试…' : '重试'}</button></div>
-            : f ? <Report data={f} unit={unit} />
+            : f ? <Report data={f} unit={unit} mode={mode} />
             : <p className="empty" role="status">正在获取预报，雪报将在数据完整后生成。</p>}
         </section>
       })}
     </div>}
-    {view === 'resorts' && favorites.includes(resort.id) && data && !blocked && !error && <Report data={data} unit={unit} inWorkspace />}<footer><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather data by Open-Meteo</a><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0（本站按当地日汇总）</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a><span>预测降雪 ≠ 实测积雪 · 收藏保存在本机</span></footer></main></>
+    {view === 'resorts' && favorites.includes(resort.id) && data && !blocked && !error && <Report data={data} unit={unit} mode={mode} inWorkspace />}<footer><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather data by Open-Meteo</a><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0（本站按当地日汇总）</a><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a><span>预测降雪 ≠ 实测积雪 · 收藏保存在本机</span></footer></main></>
 }
 export default App

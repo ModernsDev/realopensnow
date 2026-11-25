@@ -50,8 +50,8 @@ export const forecastPeriods = [
 ] as const
 export const defaultPeriod = 4
 export type Period = readonly [string, number, number]
-export const resortPeriods: readonly Period[] = [['过去 7 天', -7, 0], ['前后 14 天', -7, 7], ...forecastPeriods]
-export const defaultResortPeriod = 1
+export const timeline = { min: -7, max: 14 } as const
+export const defaultRange: [number, number] = [-7, 6]
 const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
@@ -89,9 +89,14 @@ function statuses(daily: Forecast['daily']): Forecast['modelStatus'] {
     return [id, fields.every(v => v !== null) ? '数据完整' : fields.some(v => v !== null) ? '部分缺失' : '不可用']
   }))
 }
-export function slicePeriod(data: Forecast, start: number, end: number): Forecast {
+export function slicePeriod<T extends DailySeries>(data: T, start: number, end: number): T & Pick<Forecast, 'modelStatus'> {
   const daily = Object.fromEntries(Object.entries(data.daily).map(([key, values]) => [key, values.slice(start, end)]))
   return { ...data, dates: data.dates.slice(start, end), daily, modelStatus: statuses(daily) }
+}
+export function rangeSeries(data: Forecast & { past?: DailySeries; extended?: Forecast }, from: number, to: number) {
+  const past = data.past && from < 0 ? slicePeriod({ ...data.past, weights: data.weights }, data.past.dates.length + from, data.past.dates.length + Math.min(to, -1) + 1) : undefined
+  const future = to >= 0 ? { ...slicePeriod(data.extended ?? data, Math.max(from, 0), to + 1), weights: data.weights } : undefined
+  return { past, future }
 }
 export function pastDates(requested: string, timezone: string) {
   const start = localDate(Date.parse(requested), timezone)
@@ -137,7 +142,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-  const source = forecastSource(lat, lon, elevation, resort.timezone, 14, 8)
+  const source = forecastSource(lat, lon, elevation, resort.timezone, 15, 8)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
   let data
   try {
@@ -153,7 +158,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     throw error
   }
   const fetched = new Date().toISOString()
-  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 14), source }
+  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 15), source }
   const batch = slicePeriod(extended, 0, 7)
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }

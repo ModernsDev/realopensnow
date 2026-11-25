@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, availableModels, pastDates, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -173,4 +173,16 @@ test('periods beyond a model horizon stay missing while nearer periods keep comp
   assert.equal(total(second, 'icon_seamless'), null)
   assert.ok(Math.abs(total(second, 'gfs_seamless')! - 7 * 24 * 2.54) < 1e-9)
   assert.ok(Math.abs(total(slicePeriod(data, 1, 2), 'icon_seamless')! - 24 * 2.54) < 1e-9)
+})
+
+test('timeline ranges split into past days before today and forecast days from today', () => {
+  const day = (dates: string[]) => ({ dates, daily: { snowfall_sum_gfs_seamless: dates.map((_, i) => i) } })
+  const past = day(['p7', 'p6', 'p5', 'p4', 'p3', 'p2', 'p1'])
+  const extended = { ...day(Array.from({ length: 15 }, (_, i) => `f${i}`)), modelStatus: {} } as unknown as Forecast
+  const data = { ...extended, past, extended }
+  const dates = (from: number, to: number) => { const r = rangeSeries(data, from, to); return [r.past?.dates.join() ?? null, r.future?.dates.join() ?? null] }
+  assert.deepEqual(dates(-7, 6), ['p7,p6,p5,p4,p3,p2,p1', 'f0,f1,f2,f3,f4,f5,f6'])
+  assert.deepEqual(dates(-3, -2), ['p3,p2', null])
+  assert.deepEqual(dates(-1, 0), ['p1', 'f0'])
+  assert.deepEqual(dates(8, 14), [null, 'f8,f9,f10,f11,f12,f13,f14'])
 })

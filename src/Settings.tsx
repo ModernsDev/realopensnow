@@ -2,13 +2,18 @@ import { useState } from 'react'
 import { defaultWeights, coreModels, weightShares, type Weights } from './weather'
 import { validWeights } from './weights'
 
-export function Settings({ weights, error, onSave }: { weights: Weights; error: string | null; onSave: (weights: Weights) => void }) {
+export function Settings({ unit, onUnit, weights, error, onSave }: { unit: string; onUnit: (unit: string) => void; weights: Weights; error: string | null; onSave: (weights: Weights) => void }) {
   const [draft, setDraft] = useState(weights)
   const [saved, setSaved] = useState(false)
   const valid = validWeights(draft)
   const shares = valid ? weightShares(draft) : null
   const change = (next: Weights) => { setDraft(next); setSaved(false) }
-  return <section className="detail settings" aria-label="模型权重">
+  return <><section className="detail settings" aria-label="单位">
+    <h2>单位</h2>
+    <div className="mode-switch" role="group" aria-label="降雪单位">{[['cm', '公制 (cm)'], ['in', '英制 (in)']].map(([value, label]) => <button key={value} aria-pressed={unit === value} onClick={() => onUnit(value)}>{label}</button>)}</div>
+    <p className="muted">单位保存在此浏览器中，应用于所有雪场、对比和雪报。</p>
+  </section>
+  <section className="detail settings" aria-label="模型权重">
     <h2>模型权重</h2>
     <p>调整简化模式和雪场对比中的加权综合。权重按比例换算为实际占比，合计无需等于 100；设为 0 即不使用该模型。</p>
     <form onSubmit={e => { e.preventDefault(); onSave(draft); setSaved(true) }}>
@@ -26,5 +31,5 @@ export function Settings({ weights, error, onSave }: { weights: Weights; error: 
       </div>
     </form>
     <p className="muted">权重保存在此浏览器的 cookie 中，有效期一年；换浏览器或清除 cookie 后恢复默认。</p>
-  </section>
+  </section></>
 }

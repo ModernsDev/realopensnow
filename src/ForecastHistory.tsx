@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { waterburyPoint, type QueryPoint } from './catalog'
+import { waterburyPoint, type QueryPoint, type Resort } from './catalog'
 import { models, snow, type Forecast } from './weather'
 import { ForecastView } from './Forecast'
 
@@ -19,7 +19,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
-export function ForecastHistory({ point, unit }: { point: QueryPoint; unit: string }) {
+export function ForecastHistory({ resort, point, unit }: { resort: Resort; point: QueryPoint; unit: string }) {
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState<HistoryPage>()
   const [accuracy, setAccuracy] = useState<Accuracy>()
@@ -83,7 +83,7 @@ export function ForecastHistory({ point, unit }: { point: QueryPoint; unit: stri
       {historyError && <p role="alert">{historyError} <button onClick={() => reload(value => value + 1)}>重读历史</button></p>}
       {!page && !historyError && <p role="status">正在读取历史快照…</p>}
       {page && !page.snapshots.length && <p>暂无历史快照。</p>}
-      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id} · <time dateTime={data.fetched}>{data.fetched}</time></summary><ForecastView data={data} unit={unit} archived /></details>)}
+      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id} · <time dateTime={data.fetched}>{data.fetched}</time></summary><ForecastView resort={resort} data={data} unit={unit} archived /></details>)}
       <div className="controls">
         {before !== null && <button onClick={() => go(null)}>最新快照</button>}
         {page?.next != null && <button onClick={() => go(page.next)}>更早的快照</button>}

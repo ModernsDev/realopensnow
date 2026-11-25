@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { defaultWeights, coreModels, weightShares, type Weights } from './weather'
 import { validWeights } from './weights'
+import { imperial, metric, unitOptions, type Units } from './units'
 
-export function Settings({ unit, onUnit, weights, error, onSave }: { unit: string; onUnit: (unit: string) => void; weights: Weights; error: string | null; onSave: (weights: Weights) => void }) {
+export function Settings({ units, onUnits, weights, error, onSave }: { units: Units; onUnits: (units: Units) => void; weights: Weights; error: string | null; onSave: (weights: Weights) => void }) {
   const [draft, setDraft] = useState(weights)
   const [saved, setSaved] = useState(false)
   const valid = validWeights(draft)
@@ -10,8 +11,9 @@ export function Settings({ unit, onUnit, weights, error, onSave }: { unit: strin
   const change = (next: Weights) => { setDraft(next); setSaved(false) }
   return <><section className="detail settings" aria-label="单位">
     <h2>单位</h2>
-    <div className="mode-switch" role="group" aria-label="降雪单位">{[['cm', '公制 (cm)'], ['in', '英制 (in)']].map(([value, label]) => <button key={value} aria-pressed={unit === value} onClick={() => onUnit(value)}>{label}</button>)}</div>
-    <p className="muted">单位保存在此浏览器中，应用于所有雪场、对比和雪报。</p>
+    <div className="controls">{([['公制', metric], ['英制', imperial]] as const).map(([label, preset]) => <button key={label} aria-pressed={JSON.stringify(units) === JSON.stringify(preset)} onClick={() => onUnits(preset)}>全部{label}</button>)}</div>
+    {(Object.keys(unitOptions) as (keyof Units)[]).map(k => <div className="unit-row" key={k}><span>{unitOptions[k].label}</span><div className="mode-switch" role="group" aria-label={`${unitOptions[k].label}单位`}>{unitOptions[k].options.map(o => <button key={o} aria-pressed={units[k] === o} onClick={() => onUnits({ ...units, [k]: o })}>{o}</button>)}</div></div>)}
+    <p className="muted">单位保存在此浏览器中，应用于全部页面。</p>
   </section>
   <section className="detail settings" aria-label="模型权重">
     <h2>模型权重</h2>

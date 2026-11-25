@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './regions.css'
+import { snow } from './weather'
+import type { Units } from './units'
 
 export type MapRegion = { name: string; points: string; totals: (number | null)[]; floor: number; conditions: { text: string; qualities: SnowQuality[] }[]; boundary: L.LatLngTuple[] }
 
@@ -44,7 +46,8 @@ const scale = [
   { min: -1, color: '#818990', numberColor: '#5c6870', label: '缺测' },
 ]
 
-export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; selected: string | null; onSelect: (name: string | null) => void }) {
+const scaleLabel = (min: number, units: Units) => { const i = scale.findIndex(s => s.min === min); const v = (n: number) => units.snow === 'cm' ? String(n) : snow(n, 'in'); return min === 40 ? `≥${v(40)}` : min > 0 ? `${v(min)}–${v(scale[i - 1].min)}` : min === 0 ? `不足 ${v(1)}` : scale[i].label }
+export function RegionMap({ units, rows, selected, onSelect }: { units: Units; rows: MapRegion[]; selected: string | null; onSelect: (name: string | null) => void }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   useEffect(() => {
@@ -74,7 +77,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
       const detail = document.createElement('span')
       detail.className = 'region-snow-total'
       detail.style.color = numberColor
-      detail.textContent = r.floor < 0 ? '—' : r.floor.toFixed(1) + ' cm'
+      detail.textContent = r.floor < 0 ? '—' : snow(r.floor, units.snow) + ' ' + units.snow
       caption.append(title, detail)
       if (qualities.size) {
         const status = document.createElement('span')
@@ -129,7 +132,7 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
     placeLabels()
     m.on('moveend resize', placeLabels)
     return () => { m.off('moveend resize', placeLabels); layer.remove() }
-  }, [rows, selected, onSelect])
+  }, [rows, selected, onSelect, units])
   const active = rows.find(r => r.name === selected)
   const boundary = active?.boundary
   useEffect(() => {
@@ -137,6 +140,6 @@ export function RegionMap({ rows, selected, onSelect }: { rows: MapRegion[]; sel
   }, [boundary])
   return <div className="atlas"><div className="atlas-map" ref={container} aria-label="北美西部山地降雪地图" />
     <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>西部全景</button>
-    <div className="atlas-caption"><div><strong>{active?.name ?? '累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + (active.totals[i]?.toFixed(1) ?? '—') + ' cm，' + active.conditions[i].text).join(' · ') : '两个代表点中的较低值'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="累计新雪"><strong>累计新雪（cm）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{s.label}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
+    <div className="atlas-caption"><div><strong>{active?.name ?? '累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + snow(active.totals[i], units.snow) + ' ' + units.snow + '，' + active.conditions[i].text).join(' · ') : '两个代表点中的较低值'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="累计新雪"><strong>累计新雪（{units.snow}）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{scaleLabel(s.min, units)}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
   </div>
 }

@@ -3,6 +3,8 @@ import { memo, useEffect, useState } from 'react'
 import { PeriodPicker } from './PeriodPicker'
 import { defaultPeriod, forecastPeriods } from './weather'
 import { RegionMap, boundaries, snowQuality, type SnowQuality } from './RegionMap'
+import { snow } from './weather'
+import { temp, type Units } from './units'
 
 const regions = [
   ['太平洋西北沿海山地', 'Whistler / Mount Baker', 50.06, -122.95, 48.86, -121.68],
@@ -20,7 +22,7 @@ const regions = [
 
 type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; rain_sum?: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
 
-function conditions(sample: Sample | undefined, start: number, end: number) {
+function conditions(sample: Sample | undefined, start: number, end: number, units: Units) {
   if (!sample) return { text: '等待预报', qualities: [] }
   const lows = sample.daily.temperature_2m_min?.slice(start, end)
   const highs = sample.daily.temperature_2m_max?.slice(start, end)
@@ -28,15 +30,15 @@ function conditions(sample: Sample | undefined, start: number, end: number) {
     v?.length === end - start && v.every(n => typeof n === 'number' && Number.isFinite(n))
   if (sample.daily_units.temperature_2m_min !== '°C' || sample.daily_units.temperature_2m_max !== '°C' ||
     !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', qualities: [] }
-  const range = Math.min(...lows) + '～' + Math.max(...highs) + ' °C'
-  const snow = sample.daily.snowfall_sum.slice(start, end)
-  if (!complete(snow) || snow.some(n => n < 0)) return { text: range + ' · 新雪缺测', qualities: [] }
-  const first = snow.findIndex(n => n > 0)
+  const range = temp(Math.min(...lows), units) + '～' + temp(Math.max(...highs), units) + ' ' + units.temperature
+  const snowfall = sample.daily.snowfall_sum.slice(start, end)
+  if (!complete(snowfall) || snowfall.some(n => n < 0)) return { text: range + ' · 新雪缺测', qualities: [] }
+  const first = snowfall.findIndex(n => n > 0)
   if (first < 0) return { text: range + ' · 无新增降雪', qualities: [] }
-  const warmSnowDay = snow.some((n,i) => n > 0 && highs[i] > 0)
+  const warmSnowDay = snowfall.some((n,i) => n > 0 && highs[i] > 0)
   const thaw = highs.slice(first + 1).some(n => n > 0)
   const rain = sample.daily.rain_sum?.slice(start, end)
-  const qualities = [...new Set(snow.flatMap((amount, i): SnowQuality[] => {
+  const qualities = [...new Set(snowfall.flatMap((amount, i): SnowQuality[] => {
     if (amount === 0) return []
     if (sample.daily_units.rain_sum === 'mm' && (rain?.[i] ?? 0) > 0) return ['mix']
     return [highs[i] <= -4 ? 'powder' : 'cement']
@@ -45,7 +47,7 @@ function conditions(sample: Sample | undefined, start: number, end: number) {
     (thaw ? ' · 后续有回暖风险' : '') + ' · ' + qualities.map(q => snowQuality[q].name).join(' / ') }
 }
 
-export const Regions = memo(function Regions() {
+export const Regions = memo(function Regions({ units }: { units: Units }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [samples, setSamples] = useState<Sample[]>()
   const [error, setError] = useState('')
@@ -80,7 +82,7 @@ export const Regions = memo(function Regions() {
         ? days.reduce<number>((a, b) => a + b!, 0) : null
     })
     const floor = totals.every(v => v !== null) ? Math.min(...totals) : -1
-    return { name, points, totals, floor, conditions: [0, 1].map(j => conditions(samples?.[2 * i + j], start, end)), boundary: boundaries[name] }
+    return { name, points, totals, floor, conditions: [0, 1].map(j => conditions(samples?.[2 * i + j], start, end, units)), boundary: boundaries[name] }
   }).sort((a, b) => b.floor - a.floor)
   const dates = samples?.[0].daily.time
   return <section className="region-page"><div className="region-tools">
@@ -90,10 +92,10 @@ export const Regions = memo(function Regions() {
     </small>}
     <div className="controls">
     <button onClick={() => { setError(''); setSamples(undefined); refresh(revision + 1) }}>刷新预报</button></div></div>
-    <RegionMap rows={rows} selected={selected} onSelect={setSelected} />
+    <RegionMap units={units} rows={rows} selected={selected} onSelect={setSelected} />
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
       <h2>区域对比</h2>
-      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（cm）</th><th>气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v?.toFixed(1) ?? '缺测').join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
+      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（{units.snow}）</th><th>气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v === null ? '缺测' : snow(v, units.snow)).join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
       </>}
     
   </section>

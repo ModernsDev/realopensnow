@@ -1,17 +1,18 @@
 import { elevationLabel, type QueryPoint, type Resort } from './catalog'
+import { temp, wind, type Units } from './units'
 import { compareForecasts } from './compareForecasts'
-import { fixed, models, snow, total, weighted, weightLabel, type Forecast, type Weights } from './weather'
+import { models, snow, total, weighted, weightLabel, type Forecast, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, weights, model, setModel, unit, refresh }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, units, refresh }: {
   candidates: Candidate[]
   selected: string[]
   onToggle: (id: string) => void
   weights: Weights
   model: string
   setModel: (model: string) => void
-  unit: string
+  units: Units
   refresh: () => void
 }) {
   const comparing = candidates.filter(({ resort }) => selected.includes(resort.id))
@@ -49,23 +50,23 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
               return <th scope="col" key={resort.id}>
                 {resort.name}
                 <span>{point.name}</span>
-                <span>查询海拔 {elevationLabel(point)}</span>
+                <span>查询海拔 {elevationLabel(point, units)}</span>
                 
                 <button className="compare-remove" aria-label={`移除 ${resort.name}`} onClick={() => onToggle(resort.id)}>移除</button>
               </th>
             })}</tr></thead>
             <tbody>
-              <tr><th scope="row">累计降雪 ({unit})</th>{columns.map(({ index, total, rank }) => (
+              <tr><th scope="row">累计降雪 ({units.snow})</th>{columns.map(({ index, total, rank }) => (
                 <td key={comparing[index].resort.id}>{comparing[index].error
                   ? <span className="error">{comparing[index].error} · 未排名</span>
-                  : rank === null ? dates.length ? '数据缺失 · 未排名' : '无共同日期 · 未排名' : `第 ${rank} 名 · ${snow(total, unit)}`}</td>
+                  : rank === null ? dates.length ? '数据缺失 · 未排名' : '无共同日期 · 未排名' : `第 ${rank} 名 · ${snow(total, units.snow)}`}</td>
               ))}</tr>
               {dates.map((date, i) => <tr key={date}>
                 <th scope="row">{date}</th>
                 {columns.map(({ index, days }) => <td key={comparing[index].resort.id}>
-                  <span>降雪 {days[i].snow === null ? '缺失' : `${snow(days[i].snow, unit)} ${unit}`}</span>
-                  <span>气温 {days[i].low === null ? '缺失' : `${fixed(days[i].low)} °C`} 至 {days[i].high === null ? '缺失' : `${fixed(days[i].high)} °C`}</span>
-                  <span>阵风 {days[i].gust === null ? '缺失' : `${fixed(days[i].gust)} km/h`}</span>
+                  <span>降雪 {days[i].snow === null ? '缺失' : `${snow(days[i].snow, units.snow)} ${units.snow}`}</span>
+                  <span>气温 {days[i].low === null ? '缺失' : `${temp(days[i].low, units)} ${units.temperature}`} 至 {days[i].high === null ? '缺失' : `${temp(days[i].high, units)} ${units.temperature}`}</span>
+                  <span>阵风 {days[i].gust === null ? '缺失' : `${wind(days[i].gust, units)} ${units.wind}`}</span>
                 </td>)}
               </tr>)}
             </tbody>

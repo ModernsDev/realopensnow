@@ -83,7 +83,7 @@ export function ForecastHistory({ point, unit }: { point: QueryPoint; unit: stri
       {historyError && <p role="alert">{historyError} <button onClick={() => reload(value => value + 1)}>重读历史</button></p>}
       {!page && !historyError && <p role="status">正在读取历史快照…</p>}
       {page && !page.snapshots.length && <p>暂无历史快照。</p>}
-      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id} · <time dateTime={data.fetched}>{data.fetched}</time></summary><ForecastView data={data} unit={unit} archived /></details>)}
+      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id} · <time dateTime={data.fetched}>{data.fetched}</time></summary><ForecastView mode="multi" data={data} unit={unit} archived /></details>)}
       <div className="controls">
         {before !== null && <button onClick={() => go(null)}>最新快照</button>}
         {page?.next != null && <button onClick={() => go(page.next)}>更早的快照</button>}

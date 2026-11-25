@@ -38,11 +38,17 @@ main { padding-block: 24px 32px; min-width: 0; }
 .detail-header h2 { font-size: 28px; margin: 0; }
 .detail-header h2, .report, .empty { overflow-wrap: anywhere; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; font-size: 14px; }
+.mode-switch { display: inline-flex; }
+.mode-switch button { white-space: nowrap; }
+.mode-switch button:first-child { border-radius: 7px 0 0 7px; }
+.mode-switch button:last-child { border-radius: 0 7px 7px 0; margin-left: -1px; }
+.mode-switch button[aria-pressed="true"], .mode-switch button[aria-pressed="true"]:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
 .controls label { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
 .forecast-context { padding: 18px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .model-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 16px 24px 0; padding: 0; }
+.model-totals.simple { grid-template-columns: minmax(0, 1fr); }
 .model-totals > div { padding: 4px 20px; border-left: 1px solid var(--line); }
 .model-totals > div:first-child { padding-left: 0; border: 0; }
 .model-totals dt { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--muted); }

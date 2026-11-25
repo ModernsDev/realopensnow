@@ -15,7 +15,7 @@ export function compareForecasts(forecasts: (Forecast | undefined)[], model: str
         gust: forecast ? value(forecast, 'wind_gusts_10m_max', model, i) : null,
       }
     })
-    const total = days.length && days.every(day => Object.values(day).every(n => n !== null))
+    const total = days.length && days.every(day => day.snow !== null)
       ? days.reduce((sum, day) => sum + day.snow!, 0)
       : null
     return { index, days, total }

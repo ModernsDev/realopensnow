@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { defaultWeights, models, weightShares, type Weights } from './weather'
+import { defaultWeights, coreModels, weightShares, type Weights } from './weather'
 import { validWeights } from './weights'
 
 export function Settings({ weights, error, onSave }: { weights: Weights; error: string | null; onSave: (weights: Weights) => void }) {
@@ -12,7 +12,7 @@ export function Settings({ weights, error, onSave }: { weights: Weights; error: 
     <h2>模型权重</h2>
     <p>调整简化模式和雪场对比中的加权综合。权重按比例换算为实际占比，合计无需等于 100；设为 0 即不使用该模型。</p>
     <form onSubmit={e => { e.preventDefault(); onSave(draft); setSaved(true) }}>
-      {models.map(m => <div className="weight-row" key={m.id}>
+      {coreModels.map(m => <div className="weight-row" key={m.id}>
         <label htmlFor={`weight-${m.id}`}><i style={{ background: m.color }} />{m.name}</label>
         <input type="range" id={`weight-${m.id}`} min="0" max="100" step="1" value={draft[m.id] || 0} onChange={e => change({ ...draft, [m.id]: e.target.valueAsNumber })} />
         <input type="number" aria-label={`${m.name} 权重`} required min="0" max="100" step="1" value={Number.isNaN(draft[m.id]) ? '' : draft[m.id]} onChange={e => change({ ...draft, [m.id]: e.target.valueAsNumber })} />

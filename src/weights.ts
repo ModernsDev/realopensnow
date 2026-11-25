@@ -1,10 +1,10 @@
-import { defaultWeights, models, type Weights } from './weather.ts'
+import { defaultWeights, coreModels, type Weights } from './weather.ts'
 
 export const weightsCookie = 'snow-weights'
 
 export function validWeights(input: unknown): input is Weights {
-  if (typeof input !== 'object' || input === null || Object.keys(input).length !== models.length) return false
-  const values = models.map(m => (input as Record<string, unknown>)[m.id])
+  if (typeof input !== 'object' || input === null || Object.keys(input).length !== coreModels.length) return false
+  const values = coreModels.map(m => (input as Record<string, unknown>)[m.id])
   return values.every(n => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 100) && values.some(n => n !== 0)
 }
 

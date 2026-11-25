@@ -258,3 +258,5 @@ td:first-child, th:first-child { text-align: left; }
   .chart.days-14 { min-width: 860px; }
   .error button { display: block; margin: 10px 0 0; }
 }
+.unit-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.unit-row > span { min-width: 3em; }

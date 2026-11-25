@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { sources, type Resort } from './catalog'
 import { expiredObservation, getObservations, observationStations } from './observations'
 import { snow } from './weather'
+import type { Units } from './units'
 
 const operatorReports: Record<string, string> = {
   alta: 'https://www.alta.com/lift-terrain-status',
@@ -14,7 +15,7 @@ const operatorReports: Record<string, string> = {
 
 type Result = { readings: Awaited<ReturnType<typeof getObservations>> } | { error: string }
 
-export function Observations({ resort, unit, now }: { resort: Resort; unit: string; now: number }) {
+export function Observations({ resort, units, now }: { resort: Resort; units: Units; now: number }) {
   const station = observationStations[resort.id]
   const operatorReport = operatorReports[resort.id] ?? resort.website ?? (resort.identitySources[0] === 'openskimap' ? undefined : sources[resort.identitySources[0]].url)
   const [result, setResult] = useState<Result>()
@@ -42,7 +43,7 @@ export function Observations({ resort, unit, now }: { resort: Resort; unit: stri
     <dl className="observation-readings">
       {rows.map(({ name, reading }) => <div key={name}>
         <dt>{name}</dt>
-        <dd>{loading ? '获取中…' : reading ? <strong>{expiredObservation(reading, now, station?.maxAgeHours) ? '已过期' : reading.trace ? '微量' : `${snow(reading.cm, unit)} ${unit}`}</strong> : '未知'}</dd>
+        <dd>{loading ? '获取中…' : reading ? <strong>{expiredObservation(reading, now, station?.maxAgeHours) ? '已过期' : reading.trace ? '微量' : `${snow(reading.cm, units.snow)} ${units.snow}`}</strong> : '未知'}</dd>
       </div>)}
       <div><dt>雪道与缆车开放</dt><dd>未知{operatorReport && <> · <a href={operatorReport} target="_blank" rel="noreferrer">运营方实况</a></>}</dd></div>
     </dl>

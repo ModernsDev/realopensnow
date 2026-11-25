@@ -13,7 +13,7 @@ for (const name of readdirSync('worker')) {
   const source = readFileSync(`worker/${name}`, 'utf8')
   writeFileSync(`dist/server/${name}`, source.replaceAll("from '../src/catalog.ts'", "from './catalog.js'").replaceAll("from '../src/weather.ts'", "from './weather.js'"))
 }
-for (const name of ['weather', 'catalog', 'northAmerica']) {
+for (const name of ['weather', 'catalog', 'northAmerica', 'units']) {
   const source = readFileSync(`src/${name}.ts`, 'utf8').replace(/from '(\.\/[^']+)\.ts'/g, "from '$1.js'")
   writeFileSync(`dist/server/${name}.js`, stripTypeScriptTypes(source))
 }

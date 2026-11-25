@@ -1,7 +1,11 @@
 import { queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
 export { resorts } from './catalog.ts'
 export type { Resort } from './catalog.ts'
-export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4' }, { id: 'gfs_seamless', name: 'GFS', color: '#23a094' }, { id: 'icon_seamless', name: 'ICON', color: '#ec8a32' }]
+export const models = [{ id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4', weight: 50 }, { id: 'gfs_seamless', name: 'GFS', color: '#23a094', weight: 25 }, { id: 'icon_seamless', name: 'ICON', color: '#ec8a32', weight: 25 }]
+export const weighted = { id: 'weighted', name: '加权综合', color: '#1559b7' }
+export const modes = { simple: '简化', multi: '多模型比较' } as const
+export type Mode = keyof typeof modes
+export const weightLabel = models.map(m => `${m.name} ${m.weight}%`).join(' · ')
 export type Forecast = {
   dates: string[]; daily: Record<string, (number | null)[]>; requested: string; fetched: string
   source: string; elevation: number; timezone: string
@@ -9,7 +13,22 @@ export type Forecast = {
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
 export type ForecastWithReport = Forecast & { report: ReturnType<typeof dailyReport>; reportGenerated: string }
-export const value = (f: Forecast, field: string, model: string, i: number) => f.daily[`${field}_${model}`]?.[i] ?? null
+const modelValues = (f: Forecast, field: string, i: number) => models.flatMap(m => {
+  const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
+  return n === null ? [] : [{ ...m, n }]
+})
+export function value(f: Forecast, field: string, model: string, i: number): number | null {
+  if (model !== weighted.id) return f.daily[`${field}_${model}`]?.[i] ?? null
+  const available = modelValues(f, field, i)
+  if (available.length < 2) return null
+  return available.reduce((sum, m) => sum + m.n * m.weight, 0) / available.reduce((sum, m) => sum + m.weight, 0)
+}
+export function spread(f: Forecast, field: string, i: number) {
+  const values = modelValues(f, field, i).map(m => m.n)
+  return values.length < 2 ? null : { low: Math.min(...values), high: Math.max(...values) }
+}
+export const missingModels = (f: Forecast, i: number) => models.filter(m => ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
+export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
 export function total(f: Forecast, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
   return values.length === 7 && values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null

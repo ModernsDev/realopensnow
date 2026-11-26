@@ -1,23 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { sources, type Resort } from './catalog'
+import type { Resort } from './catalog'
 import { expiredObservation, getObservations, observationStations } from './observations'
 import { snow } from './weather'
 import type { Units } from './units'
-
-const operatorReports: Record<string, string> = {
-  alta: 'https://www.alta.com/lift-terrain-status',
-  snowbird: 'https://www.snowbird.com/the-mountain/mountain-report/lift-trail-report/',
-  niseko: 'https://www.niseko.ne.jp/en/niseko-lift-status/',
-  chamonix: 'https://domaineschamonix.montblancnaturalresort.com/fr/domaine/grands-montets',
-  killington: 'https://killington.com/mountain-report',
-  stowe: 'https://www.stowe.com/the-mountain/mountain-conditions/terrain-and-lift-status.aspx',
-}
 
 type Result = { readings: Awaited<ReturnType<typeof getObservations>> } | { error: string }
 
 export function Observations({ resort, units, now, children }: { resort: Resort; units: Units; now: number; children?: ReactNode }) {
   const station = observationStations[resort.id]
-  const operatorReport = operatorReports[resort.id] ?? resort.website ?? (resort.identitySources[0] === 'openskimap' ? undefined : sources[resort.identitySources[0]].url)
   const [result, setResult] = useState<Result>()
   useEffect(() => {
     if (!station) return
@@ -41,11 +31,10 @@ export function Observations({ resort, units, now, children }: { resort: Resort;
     {result && 'error' in result && <p role="alert" className="error">测站数据暂不可用 · {result.error}</p>}
     <dl className="observation-readings">
       {children}
-      {!resort.custom && <>{rows.map(({ name, reading }) => <div key={name}>
+      {!resort.custom && rows.map(({ name, reading }) => <div key={name}>
         <dt>{name}</dt>
         <dd>{loading ? '获取中…' : reading ? <strong>{expiredObservation(reading, now, station?.maxAgeHours) ? '已过期' : reading.trace ? '微量' : `${snow(reading.cm, units.snow)} ${units.snow}`}</strong> : '未知'}</dd>
       </div>)}
-      <div><dt>雪道与缆车开放</dt><dd>未知{operatorReport && <> · <a href={operatorReport} target="_blank" rel="noreferrer">运营方实况</a></>}</dd></div></>}
     </dl>
   </section>
 }

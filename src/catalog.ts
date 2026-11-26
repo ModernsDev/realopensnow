@@ -32,7 +32,7 @@ export const sources: Record<string, Source> = {
 export type Evidence<T> = { value: T | null; status: 'verified' | 'pending' | 'mapped'; sources: string[]; note?: string }
 export type Coordinates = { lat: number; lon: number }
 export type QueryPoint = { id: string; kind: 'base' | 'mid' | 'top' | 'reference' | 'site' | 'custom'; name: string; areaId: string | null; coordinates: Evidence<Coordinates>; elevation: Evidence<number>; note: string }
-export type Resort = { id: string; name: string; aliases: string[]; website?: string; custom?: true; country: 'US' | 'CA' | 'MX' | 'JP' | 'FR' | ''; region: string; identitySources: string[]; areas: { id: string; name: string }[]; areaNote: string; coordinates: Evidence<Coordinates>; timezone: string; timezoneSources: string[]; points: QueryPoint[]; terrain: string; updatedOn: string }
+export type Resort = { id: string; name: string; aliases: string[]; custom?: true; country: 'US' | 'CA' | 'MX' | 'JP' | 'FR' | ''; region: string; identitySources: string[]; areas: { id: string; name: string }[]; areaNote: string; coordinates: Evidence<Coordinates>; timezone: string; timezoneSources: string[]; points: QueryPoint[]; terrain: string; updatedOn: string }
 export const mapped = <T,>(value: T, ...sources: string[]): Evidence<T> => ({ value, status: 'mapped', sources })
 const verified = <T,>(value: T, ...refs: string[]): Evidence<T> => ({ value, status: 'verified', sources: refs })
 const pending = <T,>(refs: string[], note: string): Evidence<T> => ({ value: null, status: 'pending', sources: refs, note })
@@ -107,9 +107,9 @@ export const chineseAliases: Record<string, string[]> = {
   'ca-bc-big-white-ski-resort': ['大白山'],
 }
 
-function mappedResort([id, name, country, region, timezone, lat, lon, aliases, website, points]: NorthAmericaResort): Resort {
+function mappedResort([id, name, country, region, timezone, lat, lon, aliases, , points]: NorthAmericaResort): Resort {
   return {
-    id, name, country, region, timezone, aliases: [...aliases, ...(chineseAliases[id] ?? [])], website: website ?? undefined,
+    id, name, country, region, timezone, aliases: [...aliases, ...(chineseAliases[id] ?? [])],
     identitySources: ['openskimap'], timezoneSources: ['openmeteoGeo'], coordinates: mapped({ lat, lon }, 'openskimap'),
     areas: [{ id, name }], areaNote: '目录范围按 OpenSkiMap 雪场条目自动提取，未经运营方逐项核对。',
     terrain: '', updatedOn: '2026-11-26',

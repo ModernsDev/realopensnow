@@ -1,5 +1,6 @@
 const hour = 60 * 60 * 1000
 const stationOffset = '-08:00'
+const snotelNoiseInches = 2
 const japanOffset = '+09:00'
 const awdb = 'https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data'
 const amedas = 'https://www.jma.go.jp/bosai/amedas/data'
@@ -53,7 +54,13 @@ export function awdbReadings(payload: unknown, triplet: string, now: number): Re
   const times = values.map(({ date }) => Date.parse(date.replace(' ', 'T') + ':00' + stationOffset))
   const index = recentIndex(times, now)
   const latest = values[index]
-  return { newSnow: null, depth: latest?.qcFlag === 'V' ? reading(latest.value, times[index], 2.54) : null }
+  if (latest?.qcFlag !== 'V') return { newSnow: null, depth: null }
+  const depth = reading(latest.value, times[index], 2.54)
+  const start = times[index] - 24 * hour
+  const baseIndex = recentIndex(times.map((time, i) => values[i].qcFlag === 'V' && time >= start - 3 * hour ? time : Infinity), start)
+  const base = values[baseIndex]?.value
+  const increase = depth && typeof base === 'number' && base >= 0 ? latest.value! - base : null
+  return { newSnow: increase === null ? null : reading(increase >= snotelNoiseInches ? increase : 0, times[index], 2.54), depth }
 }
 
 export function amedasReadings(payload: unknown, now: number): Readings {

@@ -39,3 +39,20 @@ test('CoCoRaHS daily reports use local observation time and preserve trace snowf
   assert.deepEqual(readings, { newSnow: { cm: 0, trace: true, observedAt }, depth: { cm: 2.54, observedAt } })
   assert.equal(expiredObservation(readings.newSnow!, observedAt + 30 * 3600000, 30), true)
 })
+
+test('AWDB reports the 24-hour SNWD increase and treats changes under 2 inches as no new snow', () => {
+  const series = (values: [string, number, string?][]) => [{ stationTriplet: '1308:UT:SNTL', data: [{
+    stationElement: { elementCode: 'SNWD', ordinal: 1, durationName: 'HOURLY', storedUnitCode: 'in', derivedData: false },
+    values: values.map(([date, value, qcFlag = 'V']) => ({ date, value, qcFlag })),
+  }] }]
+  const now = Date.parse('2026-11-17T20:00:00Z')
+  const at = Date.parse('2026-11-17T19:00:00Z')
+  const newSnow = (values: [string, number, string?][]) => awdbReadings(series(values), '1308:UT:SNTL', now).newSnow
+
+  assert.deepEqual(newSnow([['2026-11-16 11:00', 20], ['2026-11-17 11:00', 25]]), { cm: 12.7, observedAt: at })
+  assert.deepEqual(newSnow([['2026-11-16 11:00', 21], ['2026-11-17 11:00', 22]]), { cm: 0, observedAt: at })
+  assert.deepEqual(newSnow([['2026-11-16 11:00', 24], ['2026-11-17 11:00', 22]]), { cm: 0, observedAt: at })
+  assert.deepEqual(newSnow([['2026-11-16 09:00', 10], ['2026-11-16 10:00', 20, 'S'], ['2026-11-17 11:00', 25]]), { cm: 38.1, observedAt: at })
+  assert.equal(newSnow([['2026-11-16 07:00', 20], ['2026-11-17 11:00', 25]]), null)
+  assert.equal(newSnow([['2026-11-17 10:00', 20], ['2026-11-17 11:00', 25]]), null)
+})

@@ -22,11 +22,11 @@ npm run lint
 
 工作台按雪场独立保存当前查询点 ID（仅本页状态），默认选择山脚。390px 下图表和明细在各自区域内滚动，可用键盘操作。请求失败与重试期间保留错误，成功后才清除，取消请求的响应不再写入状态。
 
-当前无账号或自动推送。日期按雪场时区；跨时区对比尚不是相同 UTC 时间窗。缺失数据显示为 `—`，不计入所选时段总量。收藏以稳定雪场 ID 保存在各浏览器的 `snow-favorites` cookie，Worker 在访问首页时续期 400 天，旧 localStorage 收藏自动迁移；保留收藏顺序并去重；旧的重复或失效 ID 会显示整理提示。空收藏不恢复默认列表。记录损坏或存储读写失败会明确提示；保存失败时更改仍在当前页面有效，可重试保存，刷新可能丢失未保存更改。
+当前无自动推送。日期按雪场时区；跨时区对比尚不是相同 UTC 时间窗。缺失数据显示为 `—`，不计入所选时段总量。收藏以稳定雪场 ID 保存在各浏览器的 `snow-favorites` localStorage，旧版 cookie 收藏首次读取时迁移并删除 cookie；保留收藏顺序并去重；旧的重复或失效 ID 会显示整理提示。空收藏不恢复默认列表。记录损坏或存储读写失败会明确提示；保存失败时更改仍在当前页面有效，可重试保存，刷新可能丢失未保存更改。
 
 多模型接入：显式请求 `src/weather.ts` 所列全部模型（全部参与加权，权重和显示可在设置中调整；准确性存档按下标取列，新模型只能追加），当地无数据的模型和列不显示。请求内容为小时降雪（cm）、温度（°C）、阵风（km/h）及 Unix UTC 时间戳。按雪场 IANA 时区汇总含今天的十五个自然日，我的雪场用时间轴在 −7 到 +14 天之间任选连续日期（默认过去 7 天 + 未来 7 天）；接口最多 16 天，降雪按前一小时归日，第 16 天缺最后一小时，故止于 +14；对比、雪报与快照仍用前七日。ICON 约覆盖 7.5 天，降雪/阵风取前一小时，温度取瞬时时刻；跨夏令时包含 23/25 小时。过去七个当地自然日（不含今天）以同一请求的 `past_days` 取得，来自历次模型短时预报拼接，非实测，单独展示且不存入快照。其余额外前后日期仅用于覆盖当地日边界，不展示为更长预报。小时缺测、非法数值或单位异常使对应日字段保持 null，不补零、不插值，也不算所选时段总量。界面仅在模型缺失时显示状态。cm/in 始终从未舍入 cm 换算。HTTP、网络、超时及无效响应明确报错。
 
-预报模式：「简化」（默认）显示加权综合，「多模型比较」并列各模型及降雪范围。默认权重定义在 `src/weather.ts`（ECMWF 50、GFS/ICON/NBM 20–25、其余 10–15，按比例换算），未经实测校准；某地无数据的模型跳过，其余按比例放大。「显示」开关只影响多模型比较、模型范围和对比选项，按浏览器保存在 `snow-hidden` cookie。用户可在「设置」修改，按浏览器保存在 `snow-weights` cookie（一年），按比例换算占比，0 表示停用。按日、按字段加权；启用的模型部分缺测时其余权重归一化；当地有数据的启用模型两个及以上而当日可用不足两个为 null；一个都没有时为 null。
+预报模式：「简化」（默认）显示加权综合，「多模型比较」并列各模型及降雪范围。默认权重定义在 `src/weather.ts`（ECMWF 50、GFS/ICON/NBM 20–25、其余 10–15，按比例换算），未经实测校准；某地无数据的模型跳过，其余按比例放大。「显示」开关只影响多模型比较、模型范围和对比选项，按浏览器保存在 `snow-hidden` localStorage。用户可在「设置」修改，按浏览器保存在 `snow-weights` localStorage，按比例换算占比，0 表示停用。按日、按字段加权；启用的模型部分缺测时其余权重归一化；当地有数据的启用模型两个及以上而当日可用不足两个为 null；一个都没有时为 null。
 
 雪况区位于雪场详情顶部，合并模型累计与附近测站数据。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。
 
@@ -38,7 +38,7 @@ Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m
 
 正式站点为 `https://snow.moderns.dev`。通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
 
-账户：Google 登录由 Better Auth 处理，用户、会话与收藏/自定义地点/权重存于 D1。未登录时数据只存在本机；首次登录上传本机数据，之后以云端为准。`GOOGLE_CLIENT_ID` 在 `wrangler.jsonc` 的 vars 中（Google Cloud 项目 realopensnow），线上需配置 Worker secrets `BETTER_AUTH_SECRET`、`GOOGLE_CLIENT_SECRET`，Google OAuth 回调地址为 `https://snow.moderns.dev/api/auth/callback/google`。本地用 `.dev.vars` 提供同名变量，`npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangler dev --local-upstream localhost:8788 --port 8788` 运行。
+账户：Google 登录由 Better Auth 处理。D1 中共享数据为预报缓存、天气配额和预报快照；个人数据按用户存于 `user_settings`（单位、权重、隐藏模型）、`user_favorites`、`user_locations`。cookie 只保存登录会话。未登录时数据只存在本机；首次登录上传本机数据，之后以云端为准。`GOOGLE_CLIENT_ID` 在 `wrangler.jsonc` 的 vars 中（Google Cloud 项目 realopensnow），线上需配置 Worker secrets `BETTER_AUTH_SECRET`、`GOOGLE_CLIENT_SECRET`，Google OAuth 回调地址为 `https://snow.moderns.dev/api/auth/callback/google`。本地用 `.dev.vars` 提供同名变量，`npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangler dev --local-upstream localhost:8788 --port 8788` 运行。
 
 
 公开站由浏览器直接请求 Open-Meteo。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。

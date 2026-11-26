@@ -48,8 +48,8 @@ function App() {
   const [comparisonModel, setComparisonModel] = useState(weighted.id)
   const [mode, setMode] = useState<Mode>('simple')
   const [weightState, setWeightState] = useState(() => {
-    const { weights, error } = readWeights(document.cookie)
-    const hidden = readHidden(document.cookie)
+    const { weights, error } = readWeights(document, storage)
+    const hidden = readHidden(document, storage)
     return { weights, hidden: hidden.hidden, error: error ?? hidden.error }
   })
   const [units, setUnitsState] = useState(() => readUnits(storage))
@@ -67,8 +67,8 @@ function App() {
     const weights = validWeights(merged) ? merged : defaultWeights
     const hidden = validHidden(data.hidden) ? data.hidden : []
     setCustomState({ locations, error: saveCustomLocations(locations, storage) })
-    setFavoriteState({ ids: next, error: saveFavorites(next, document, ids) })
-    setWeightState({ weights, hidden, error: saveSettings(weights, hidden, document, location.protocol === 'https:') })
+    setFavoriteState({ ids: next, error: saveFavorites(next, storage, ids) })
+    setWeightState({ weights, hidden, error: saveSettings(weights, hidden, storage) })
     setUnits(validUnits(data.units) ? data.units : metric)
     setComparisonIds(next.slice(0, 5))
     setSelected(prev => ids.has(prev) ? prev : next[0] ?? '')
@@ -145,14 +145,14 @@ function App() {
   }, [queryKeys, request, byId])
   const toggle = (id: string) => {
     const next = favorites.includes(id) ? favorites.filter(x => x !== id) : [...favorites, id]
-    setFavoriteState({ ids: next, error: saveFavorites(next, document, idsOf(custom)) })
+    setFavoriteState({ ids: next, error: saveFavorites(next, storage, idsOf(custom)) })
     if (!next.includes(id)) setComparisonIds(ids => ids.filter(value => value !== id))
   }
   const addLocation = (location: CustomLocation) => {
     const locations = [...custom, location]
     const next = [...favorites, location.id]
     setCustomState({ locations, error: saveCustomLocations(locations, storage) })
-    setFavoriteState({ ids: next, error: saveFavorites(next, document, idsOf(locations)) })
+    setFavoriteState({ ids: next, error: saveFavorites(next, storage, idsOf(locations)) })
     setSelected(location.id)
     setCreating(false)
   }
@@ -160,17 +160,17 @@ function App() {
     const locations = custom.filter(l => l.id !== id)
     const next = favorites.filter(x => x !== id)
     setCustomState({ locations, error: saveCustomLocations(locations, storage) })
-    setFavoriteState({ ids: next, error: saveFavorites(next, document, idsOf(locations)) })
+    setFavoriteState({ ids: next, error: saveFavorites(next, storage, idsOf(locations)) })
     setComparisonIds(ids => ids.filter(value => value !== id))
     setSelected(next[0] ?? '')
   }
   const tracked = favorites.map(id => byId.get(id)!)
   return <><header className="topbar"><div className="topbar-inner"><a className="brand" href="/"><img src="/favicon.svg" alt="" />RealOpenSnow</a><nav aria-label="主导航">{(Object.keys(views) as View[]).map(name => <button aria-current={view === name ? 'page' : undefined} className={view === name ? 'active' : ''} onClick={() => navigate(name)} key={name}>{views[name]}</button>)}</nav><div className="actions"><ResortSearch resorts={allResorts} favorites={favorites} onSelect={id => { setSelected(id); setCreating(false); navigate('resorts') }} /><button onClick={() => { setCreating(true); navigate('resorts') }}>自定义坐标</button>{accountsEnabled && account !== undefined && (account ? <button className="account" title={account.email} onClick={() => signOut().then(() => setAccount(null), e => setAccountError(e.message))}>{account.name} · 退出</button> : <button className="account" onClick={() => signIn().catch(e => setAccountError(e.message))}>Google 登录</button>)}</div></div></header><div className="page-head"><Suspense><SnowMountain /></Suspense><div className="page-head-inner"><h1>{views[view]}</h1></div></div><main>
     {accountError && <div role="alert" className="empty error">{accountError}<button onClick={() => setAccountError(null)}>关闭</button></div>}
-    {favoriteState.error && <div role="alert" className="empty error">{favoriteState.error}<button onClick={() => setFavoriteState({ ids: favorites, error: saveFavorites(favorites, document, idsOf(custom)) })}>重试保存收藏</button></div>}
+    {favoriteState.error && <div role="alert" className="empty error">{favoriteState.error}<button onClick={() => setFavoriteState({ ids: favorites, error: saveFavorites(favorites, storage, idsOf(custom)) })}>重试保存收藏</button></div>}
     {customState.error && <div role="alert" className="empty error">{customState.error}<button onClick={() => setCustomState({ locations: custom, error: saveCustomLocations(custom, storage) })}>保存当前地点列表</button></div>}
     {weightState.error && view !== 'settings' && <div role="alert" className="empty error">{weightState.error}<button onClick={() => navigate('settings')}>打开设置</button></div>}
-    {view === 'settings' ? <Settings units={units} onUnits={setUnits} weights={weightState.weights} hidden={weightState.hidden} error={weightState.error} onSave={(weights, hidden) => setWeightState({ weights, hidden, error: saveSettings(weights, hidden, document, location.protocol === 'https:') })} /> : view === 'regions' ? <Regions units={units} /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{tracked.length ? tracked.map(r => { const f = active(`${r.id}-${pointFor(r).id}`).data; return <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => { setSelected(r.id); setCreating(false) }}><strong>{r.name}</strong><span>{r.region}</span><span>{elevationRange(r, units)}</span>{f && <span className="resort-snow">过去 7 天 <b>{snow(total(f.past, weighted.id), units.snow)}</b> · 未来 7 天 <b>{snow(total(f, weighted.id), units.snow)}</b> {units.snow}</span>}</button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div> }) : <p className="empty">还没有收藏雪场。用右上角搜索打开雪场，再点标题旁的“添加”。</p>}</section>{creating ? <CustomLocationForm onAdd={addLocation} onCancel={() => setCreating(false)} /> : !byId.has(selected) ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><div className="detail-title"><h2>{resort.name}</h2><button className={`title-star ${favorites.includes(resort.id) ? 'saved' : ''}`} aria-pressed={favorites.includes(resort.id)} aria-label={`${favorites.includes(resort.id) ? '取消收藏' : '收藏'} ${resort.name}`} title={favorites.includes(resort.id) ? '从我的雪场移除' : '添加到我的雪场'} onClick={() => toggle(resort.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" /></svg><span>{favorites.includes(resort.id) ? '已添加' : '添加'}</span></button></div><div className="controls"><ModeSwitch mode={mode} setMode={setMode} /><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p, units)}</option>)}</select></label>{resort.custom && <button onClick={() => { if (window.confirm(`删除自定义地点“${resort.name}”？`)) removeLocation(resort.id) }}>删除地点</button>}</div></div>{(!resort.custom || (data && mode === 'simple')) && <Observations key={resort.id} resort={resort} units={units} now={now}>{data && mode === 'simple' && <SnowTotals data={data} days={range} units={units} />}</Observations>}{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}</div> : data ? <ForecastView data={data} days={range} onDays={setRange} units={units} mode={mode} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取预报…</p>}{!blocked && !resort.custom && <ForecastHistory key={point.id} point={point} units={units} />}</section>}</div> : view === 'compare' ? <Comparison
+    {view === 'settings' ? <Settings units={units} onUnits={setUnits} weights={weightState.weights} hidden={weightState.hidden} error={weightState.error} onSave={(weights, hidden) => setWeightState({ weights, hidden, error: saveSettings(weights, hidden, storage) })} /> : view === 'regions' ? <Regions units={units} /> : view === 'resorts' ? <div className="workspace"><section className="resort-list" aria-label="雪场列表">{tracked.length ? tracked.map(r => { const f = active(`${r.id}-${pointFor(r).id}`).data; return <div key={r.id} className={`resort ${resort.id === r.id ? 'selected' : ''}`}><button className="resort-select" aria-pressed={resort.id === r.id} onClick={() => { setSelected(r.id); setCreating(false) }}><strong>{r.name}</strong><span>{r.region}</span><span>{elevationRange(r, units)}</span>{f && <span className="resort-snow">过去 7 天 <b>{snow(total(f.past, weighted.id), units.snow)}</b> · 未来 7 天 <b>{snow(total(f, weighted.id), units.snow)}</b> {units.snow}</span>}</button><button className={`star ${favorites.includes(r.id) ? 'saved' : ''}`} aria-label={`${favorites.includes(r.id) ? '取消收藏' : '收藏'} ${r.name}`} onClick={() => toggle(r.id)}>{favorites.includes(r.id) ? '★' : '☆'}</button></div> }) : <p className="empty">还没有收藏雪场。用右上角搜索打开雪场，再点标题旁的“添加”。</p>}</section>{creating ? <CustomLocationForm onAdd={addLocation} onCancel={() => setCreating(false)} /> : !byId.has(selected) ? <section className="detail"><p role="status" className="empty">收藏后可在这里查看雪场详情。</p></section> : <section className="detail"><div className="detail-header"><div className="detail-title"><h2>{resort.name}</h2><button className={`title-star ${favorites.includes(resort.id) ? 'saved' : ''}`} aria-pressed={favorites.includes(resort.id)} aria-label={`${favorites.includes(resort.id) ? '取消收藏' : '收藏'} ${resort.name}`} title={favorites.includes(resort.id) ? '从我的雪场移除' : '添加到我的雪场'} onClick={() => toggle(resort.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" /></svg><span>{favorites.includes(resort.id) ? '已添加' : '添加'}</span></button></div><div className="controls"><ModeSwitch mode={mode} setMode={setMode} /><label>海拔 <select aria-label="海拔" value={point.id} onChange={e => setPointIds(prev => ({ ...prev, [resort.id]: e.target.value }))}>{resort.points.map(p => <option key={p.id} value={p.id}>{p.name} · {elevationLabel(p, units)}</option>)}</select></label>{resort.custom && <button onClick={() => { if (window.confirm(`删除自定义地点“${resort.name}”？`)) removeLocation(resort.id) }}>删除地点</button>}</div></div>{(!resort.custom || (data && mode === 'simple')) && <Observations key={resort.id} resort={resort} units={units} now={now}>{data && mode === 'simple' && <SnowTotals data={data} days={range} units={units} />}</Observations>}{blocked ? <p role="status" className="empty">{blocked}</p> : error ? <div role="alert" className="empty error">{error}</div> : data ? <ForecastView data={data} days={range} onDays={setRange} units={units} mode={mode} id={`forecast-${resort.id}-${point.id}`} /> : <p role="status" className="empty">正在获取预报…</p>}{!blocked && !resort.custom && <ForecastHistory key={point.id} point={point} units={units} />}</section>}</div> : view === 'compare' ? <Comparison
       candidates={tracked.map(r => {
         const point = pointFor(r)
         const k = `${r.id}-${point.id}`

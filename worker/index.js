@@ -1,6 +1,5 @@
 import { assets, points } from './generated.js'
 import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
-import { renewedFavoritesCookie } from './favorites-cookie.mjs'
 import { captureSnapshot, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
 import { auth, me } from './accounts.mjs'
 
@@ -35,13 +34,11 @@ export default {
     const asset = assets.get(url.pathname)
     if (!asset) return new Response('Not found', { status: 404 })
     const [type, base64] = asset
-    const favoritesCookie = url.pathname === '/' && renewedFavoritesCookie(request.headers.get('cookie'))
     return new Response(request.method === 'HEAD' ? null : Uint8Array.from(atob(base64), character => character.charCodeAt(0)), {
       headers: {
         'content-type': type,
         'cache-control': url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'private, no-cache',
         'x-content-type-options': 'nosniff',
-        ...(favoritesCookie && { 'set-cookie': favoritesCookie }),
       },
     })
   },

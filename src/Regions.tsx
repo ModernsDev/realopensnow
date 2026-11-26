@@ -51,7 +51,6 @@ export const Regions = memo(function Regions({ units }: { units: Units }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [samples, setSamples] = useState<Sample[]>()
   const [error, setError] = useState('')
-  const [revision, refresh] = useState(0)
   const [period, select] = useState(defaultPeriod)
   const [, start, end] = forecastPeriods[period]
   useEffect(() => {
@@ -74,7 +73,7 @@ export const Regions = memo(function Regions({ units }: { units: Units }) {
         if (!controller.signal.aborted) setSamples(data)
       }).catch(e => { if (!controller.signal.aborted) setError(e.message) })
     return () => controller.abort()
-  }, [revision])
+  }, [])
   const rows = regions.map(([name, points], i) => {
     const totals = [0, 1].map(j => {
       const days = samples?.[2 * i + j].daily.snowfall_sum.slice(start, end)
@@ -90,8 +89,7 @@ export const Regions = memo(function Regions({ units }: { units: Units }) {
     {dates && <small aria-live="polite">
       {dates[start].slice(5)}{end - start > 1 && ' — ' + dates[end - 1].slice(5)}
     </small>}
-    <div className="controls">
-    <button onClick={() => { setError(''); setSamples(undefined); refresh(revision + 1) }}>刷新预报</button></div></div>
+    </div>
     <RegionMap units={units} rows={rows} selected={selected} onSelect={setSelected} />
     {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
       <h2>区域对比</h2>

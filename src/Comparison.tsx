@@ -5,7 +5,7 @@ import { models, snow, total, weighted, weightLabel, type Forecast, type Weights
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: Forecast; error?: string; loading: boolean }
 
-export function Comparison({ candidates, selected, onToggle, weights, model, setModel, units, refresh, hidden }: {
+export function Comparison({ candidates, selected, onToggle, weights, model, setModel, units, hidden }: {
   hidden: string[]
   candidates: Candidate[]
   selected: string[]
@@ -14,7 +14,6 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
   model: string
   setModel: (model: string) => void
   units: Units
-  refresh: () => void
 }) {
   const comparing = candidates.filter(({ resort }) => selected.includes(resort.id))
   const enough = comparing.length >= 2
@@ -38,7 +37,6 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
     {enough ? <>
       <div className="controls compare-controls">
         <label>预报模型 <select value={model} onChange={e => setModel(e.target.value)}>{[weighted, ...options].map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-        <button onClick={refresh} disabled={loading}>{comparing.some(candidate => candidate.error) ? '重试预报' : '刷新预报'}</button>
       </div>
       {loading ? <p role="status" className="empty">正在获取所选雪场的预报…</p> : <>
         {dates.length > 0

@@ -35,7 +35,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 
 .workspace { display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 24px; align-items: start; }
 .workspace > * { min-width: 0; }
-.detail, .report, .atlas, .region-page > .table-scroll { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.detail, .atlas, .region-page > .table-scroll { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .detail { overflow: hidden; }
 .resort { display: flex; align-items: center; border-radius: 8px; padding: 12px 8px 12px 14px; }
 .resort + .resort { margin-top: 4px; }
@@ -67,7 +67,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 .title-star svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 .title-star.saved { color: var(--gold); border-color: #e0c98f; background: #fdf7e8; }
 .title-star.saved svg { fill: currentColor; }
-.detail-header h2, .report, .empty { overflow-wrap: anywhere; }
+.detail-header h2, .empty { overflow-wrap: anywhere; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; font-size: 14px; }
 .mode-switch { display: inline-flex; }
 .mode-switch button { white-space: nowrap; }
@@ -163,12 +163,6 @@ td:first-child, th:first-child { text-align: left; }
 .observation-readings dd { margin: 2px 0 0; }
 .observation-readings dd strong { font-size: 24px; font-weight: 600; }
 
-.report { margin-top: 24px; padding: 24px; }
-.report p { font-size: 15px; line-height: 1.75; margin-bottom: 8px; }
-.report p.muted { font-size: 13px; }
-.report details { margin-top: 14px; }
-.report details .forecast-context, .report details .chart-heading, .report details .catalog, .report details .footnote { padding-inline: 0; }
-.report details .model-totals, .report details .chart, .report details .table-scroll { margin-inline: 0; }
 .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
 .report-tile { display: flex; flex-direction: column; gap: 10px; min-height: 220px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow-wrap: anywhere; }
 .report-tile h2 { font-size: 17px; margin: 0; }
@@ -244,7 +238,7 @@ td:first-child, th:first-child { text-align: left; }
   .actions { flex-wrap: wrap; }
   .resort { flex: 0 0 220px; background: var(--panel); border: 1px solid var(--line); }
   .resort + .resort { margin-top: 0; }
-    .detail-header, .catalog, .compare, .report { padding-inline: 16px; }
+    .detail-header, .catalog, .compare { padding-inline: 16px; }
   .forecast-context, .chart-heading, .footnote { padding-inline: 16px; }
   .table-scroll { margin-inline: 16px; }
   .model-totals { margin-inline: 16px; }

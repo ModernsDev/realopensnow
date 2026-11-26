@@ -11,11 +11,12 @@ export const metric: Units = { snow: 'cm', temperature: '°C', wind: 'km/h', ele
 export const imperial: Units = { snow: 'in', temperature: '°F', wind: 'mph', elevation: 'ft' }
 
 const key = 'snow-units'
+export const validUnits = (input: unknown): input is Units => typeof input === 'object' && input !== null && Object.keys(input).length === Object.keys(unitOptions).length &&
+  (Object.keys(unitOptions) as (keyof Units)[]).every(k => (unitOptions[k].options as readonly unknown[]).includes((input as Record<string, unknown>)[k]))
 export function readUnits(storage: () => Storage): Units {
-  const raw = storage().getItem(key)
   try {
-    const parsed = JSON.parse(raw ?? '')
-    if ((Object.keys(unitOptions) as (keyof Units)[]).every(k => (unitOptions[k].options as readonly unknown[]).includes(parsed?.[k]))) return parsed
+    const parsed: unknown = JSON.parse(storage().getItem(key) ?? '')
+    if (validUnits(parsed)) return parsed
   } catch {}
   return metric
 }

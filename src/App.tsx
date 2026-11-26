@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { dailyReport, defaultRange, forecast, forecastExpired, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { dailyReport, defaultRange, defaultWeights, forecast, forecastExpired, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
 import { ForecastView, ModeSwitch, ReportTile, SnowTotals } from './Forecast'
 import { ForecastHistory } from './ForecastHistory'
 import { Observations } from './ResortObservations'
@@ -7,11 +7,12 @@ import { Comparison } from './Comparison'
 import { elevationLabel, queryBlockReason } from './catalog'
 import { ResortSearch } from './ResortSearch'
 import { readFavorites, saveFavorites } from './favorites'
-import { customResort, readCustomLocations, saveCustomLocations, type CustomLocation } from './customLocations'
+import { customResort, readCustomLocations, saveCustomLocations, validLocation, type CustomLocation } from './customLocations'
+import { accountsEnabled, loadAccount, saveUserData, signIn, signOut, type Account, type UserData } from './account'
 import { CustomLocationForm } from './CustomLocationForm'
 import { Settings } from './Settings'
-import { elevation, readUnits, saveUnits, type Units } from './units'
-import { readHidden, readWeights, saveSettings } from './weights'
+import { elevation, metric, readUnits, saveUnits, validUnits, type Units } from './units'
+import { readHidden, readWeights, saveSettings, validHidden, validWeights } from './weights'
 import { Regions } from './Regions'
 import './App.css'
 
@@ -55,6 +56,35 @@ function App() {
   const setUnits = (next: Units) => { saveUnits(next, storage); setUnitsState(next) }
   const [range, setRange] = useState(defaultRange)
   const [view, setView] = useState(currentView)
+  const [account, setAccount] = useState<Account | null | undefined>(accountsEnabled ? undefined : null)
+  const [accountError, setAccountError] = useState<string | null>(null)
+  const saving = useRef(Promise.resolve())
+  const applyUserData = (data: UserData) => {
+    const locations = data.customLocations.filter(validLocation)
+    const ids = idsOf(locations)
+    const next = data.favorites.filter(id => ids.has(id))
+    const merged = { ...defaultWeights, ...data.weights }
+    const weights = validWeights(merged) ? merged : defaultWeights
+    const hidden = validHidden(data.hidden) ? data.hidden : []
+    setCustomState({ locations, error: saveCustomLocations(locations, storage) })
+    setFavoriteState({ ids: next, error: saveFavorites(next, document, ids) })
+    setWeightState({ weights, hidden, error: saveSettings(weights, hidden, document, location.protocol === 'https:') })
+    setUnits(validUnits(data.units) ? data.units : metric)
+    setComparisonIds(next.slice(0, 5))
+    setSelected(prev => ids.has(prev) ? prev : next[0] ?? '')
+  }
+  useEffect(() => {
+    if (!accountsEnabled) return
+    loadAccount().then(result => {
+      if (result?.data) applyUserData(result.data)
+      setAccount(result?.user ?? null)
+    }).catch(e => { setAccount(null); setAccountError(e.message) })
+  }, [])
+  useEffect(() => {
+    if (!account) return
+    const data = { favorites, customLocations: custom, weights: weightState.weights, hidden: weightState.hidden, units }
+    saving.current = saving.current.then(() => saveUserData(data)).then(setAccountError)
+  }, [account, favorites, custom, weightState.weights, weightState.hidden, units])
   const navigate = (next: View) => {
     window.location.hash = next
     setView(next)
@@ -135,7 +165,8 @@ function App() {
     setSelected(next[0] ?? '')
   }
   const tracked = favorites.map(id => byId.get(id)!)
-  return <><header className="topbar"><div className="topbar-inner"><a className="brand" href="/"><img src="/favicon.svg" alt="" />RealOpenSnow</a><nav aria-label="主导航">{(Object.keys(views) as View[]).map(name => <button aria-current={view === name ? 'page' : undefined} className={view === name ? 'active' : ''} onClick={() => navigate(name)} key={name}>{views[name]}</button>)}</nav><div className="actions"><ResortSearch resorts={allResorts} favorites={favorites} onSelect={id => { setSelected(id); setCreating(false); navigate('resorts') }} /><button onClick={() => { setCreating(true); navigate('resorts') }}>自定义坐标</button></div></div></header><div className="page-head"><Suspense><SnowMountain /></Suspense><div className="page-head-inner"><h1>{views[view]}</h1></div></div><main>
+  return <><header className="topbar"><div className="topbar-inner"><a className="brand" href="/"><img src="/favicon.svg" alt="" />RealOpenSnow</a><nav aria-label="主导航">{(Object.keys(views) as View[]).map(name => <button aria-current={view === name ? 'page' : undefined} className={view === name ? 'active' : ''} onClick={() => navigate(name)} key={name}>{views[name]}</button>)}</nav><div className="actions"><ResortSearch resorts={allResorts} favorites={favorites} onSelect={id => { setSelected(id); setCreating(false); navigate('resorts') }} /><button onClick={() => { setCreating(true); navigate('resorts') }}>自定义坐标</button>{accountsEnabled && account !== undefined && (account ? <button className="account" title={account.email} onClick={() => signOut().then(() => setAccount(null), e => setAccountError(e.message))}>{account.name} · 退出</button> : <button className="account" onClick={() => signIn().catch(e => setAccountError(e.message))}>Google 登录</button>)}</div></div></header><div className="page-head"><Suspense><SnowMountain /></Suspense><div className="page-head-inner"><h1>{views[view]}</h1></div></div><main>
+    {accountError && <div role="alert" className="empty error">{accountError}<button onClick={() => setAccountError(null)}>关闭</button></div>}
     {favoriteState.error && <div role="alert" className="empty error">{favoriteState.error}<button onClick={() => setFavoriteState({ ids: favorites, error: saveFavorites(favorites, document, idsOf(custom)) })}>重试保存收藏</button></div>}
     {customState.error && <div role="alert" className="empty error">{customState.error}<button onClick={() => setCustomState({ locations: custom, error: saveCustomLocations(custom, storage) })}>保存当前地点列表</button></div>}
     {weightState.error && view !== 'settings' && <div role="alert" className="empty error">{weightState.error}<button onClick={() => navigate('settings')}>打开设置</button></div>}

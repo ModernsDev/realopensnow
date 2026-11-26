@@ -79,7 +79,7 @@ export function customResort(l: CustomLocation): Resort {
   }
 }
 
-function validLocation(l: CustomLocation) {
+export function validLocation(l: CustomLocation) {
   return l && typeof l.id === 'string' && /^custom-.+/.test(l.id) && typeof l.name === 'string' && l.name.trim() &&
     Number.isFinite(l.lat) && Math.abs(l.lat) <= 90 && Number.isFinite(l.lon) && Math.abs(l.lon) <= 180 &&
     Number.isFinite(l.elevation) && l.elevation >= -500 && l.elevation <= 9000 && validTimezone(l.timezone) &&

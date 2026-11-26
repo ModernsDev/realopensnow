@@ -2,6 +2,7 @@ import { assets, points } from './generated.js'
 import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
 import { renewedFavoritesCookie } from './favorites-cookie.mjs'
 import { captureSnapshot, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
+import { auth, me } from './accounts.mjs'
 
 async function api(request, env, url) {
   const [, , route, point] = url.pathname.split('/')
@@ -27,6 +28,8 @@ export default {
       if (request.method !== 'GET') return new Response(null, { status: 405 })
       return stoweObservations()
     }
+    if (url.pathname.startsWith('/api/auth/')) return auth(env, url.origin).handler(request)
+    if (url.pathname === '/api/me') return me(request, env, url)
     if (url.pathname.startsWith('/api/')) return api(request, env, url)
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
     const asset = assets.get(url.pathname)

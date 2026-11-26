@@ -1,33 +1,10 @@
-import { availableModels, visibleModels, modes, snow, spread, total, value, weighted, weightLabel, defaultRange, offsetLabel, rangeSeries, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
+import { availableModels, visibleModels, modes, snow, spread, total, value, weighted, defaultRange, offsetLabel, rangeSeries, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
 import type { CSSProperties } from 'react'
 import { elevation, temp, wind, type Units } from './units'
 import { TimelinePicker } from './PeriodPicker'
 
 export function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
   return <div className="mode-switch" role="group" aria-label="预报模式">{(Object.keys(modes) as Mode[]).map(m => <button key={m} aria-pressed={mode === m} onClick={() => setMode(m)}>{modes[m]}</button>)}</div>
-}
-export function Report({ resort, data, units, mode }: { resort: Resort; data: ForecastWithReport; units: Units; mode: Mode }) {
-  const { report: summary } = data
-  if ('blocked' in summary) return <div className="report" role="status"><p>每日雪报暂不可用。{summary.blocked}</p></div>
-  const point = resort.points.find(p => p.id === data.query.pointId)!
-  return <article className="report" aria-label={`${resort.name} 每日雪报`}>
-    <h2>每日雪报</h2>
-    <p>{resort.name} · {point.name} · 查询海拔 {elevation(data.query.elevation, units)} {units.elevation}</p>
-    <p className="muted">{data.dates[0]}</p>
-    {mode === 'simple' ? <>
-      <p><strong>当日加权降雪</strong> · {snow(value(data, 'snowfall_sum', weighted.id, 0), units.snow)} {units.snow}</p>
-      <p><strong>七日加权累计</strong> · {snow(total(data, weighted.id), units.snow)} {units.snow}（模型范围 {snow(summary.lowTotal, units.snow)}–{snow(summary.highTotal, units.snow)} {units.snow}）</p>
-      <p><strong>当日加权阵风</strong> · {wind(value(data, 'wind_gusts_10m_max', weighted.id, 0), units)} {units.wind}</p>
-      <p><strong>当日加权气温</strong> · {temp(value(data, 'temperature_2m_min', weighted.id, 0), units)} 至 {temp(value(data, 'temperature_2m_max', weighted.id, 0), units)} {units.temperature}</p>
-      <p className="muted">权重 {weightLabel(data.weights, data)}</p>
-    </> : <>
-    <p><strong>当日预报降雪</strong> · {summary.today.map(model => `${model.name} ${snow(model.snowfall, units.snow)} ${units.snow}`).join(' / ')}</p>
-    <p><strong>七日模型分歧</strong> · {data.dates[0]} 至 {data.dates.at(-1)}，各模型累计预报降雪 {snow(summary.lowTotal, units.snow)}–{snow(summary.highTotal, units.snow)} {units.snow}</p>
-    <p><strong>当日预报阵风</strong> · 各模型最高 {wind(summary.gust, units)} {units.wind}</p>
-    <p><strong>当日预报气温</strong> · 各模型最低至最高 {temp(summary.lowTemp, units)} 至 {temp(summary.highTemp, units)} {units.temperature}</p>
-    </>}
-    <p><a href={`#forecast-${resort.id}-${point.id}`}>预报明细</a></p>
-  </article>
 }
 export function ReportTile({ resort, data, units, mode }: { resort: Resort; data: ForecastWithReport; units: Units; mode: Mode }) {
   const { report: summary } = data

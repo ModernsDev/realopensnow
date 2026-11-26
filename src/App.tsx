@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { dailyReport, defaultRange, forecast, forecastExpired, resorts, snow, total, weighted, type ForecastWithReport, type Mode } from './weather'
-import { ForecastView, ModeSwitch, Report, ReportTile, SnowTotals } from './Forecast'
+import { ForecastView, ModeSwitch, ReportTile, SnowTotals } from './Forecast'
 import { ForecastHistory } from './ForecastHistory'
 import { Observations } from './ResortObservations'
 import { Comparison } from './Comparison'
@@ -171,7 +171,6 @@ function App() {
             : <p className="tile-status" role="status">正在获取预报…</p>}
         </article>
       })}</div>}
-    </div>}
-    {view === 'resorts' && !creating && favorites.includes(resort.id) && data && !blocked && !error && <Report resort={resort} data={data} units={units} mode={mode} />}</main></>
+    </div>}</main></>
 }
 export default App

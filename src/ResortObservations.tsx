@@ -33,7 +33,7 @@ export function Observations({ resort, units, now, children }: { resort: Resort;
   const readings = result && 'readings' in result ? result.readings : undefined
   const loading = station && !result
   const rows = [
-    { name: '附近测站 24 小时新雪', reading: readings?.newSnow },
+    { name: station?.provider === 'snotel' ? '附近测站 24 小时积雪增量' : '附近测站 24 小时新雪', reading: readings?.newSnow },
     { name: '附近测站积雪深度', reading: readings?.depth },
   ]
   return <section className="catalog observation-section" aria-label="雪况">

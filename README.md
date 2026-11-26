@@ -28,7 +28,7 @@ npm run lint
 
 预报模式：「简化」（默认）显示加权综合，「多模型比较」并列各模型及降雪范围。默认权重定义在 `src/weather.ts`（ECMWF 50、GFS/ICON/NBM 20–25、其余 10–15，按比例换算），未经实测校准；某地无数据的模型跳过，其余按比例放大。「显示」开关只影响多模型比较、模型范围和对比选项，按浏览器保存在 `snow-hidden` cookie。用户可在「设置」修改，按浏览器保存在 `snow-weights` cookie（一年），按比例换算占比，0 表示停用。按日、按字段加权；启用的模型部分缺测时其余权重归一化；当地有数据的启用模型两个及以上而当日可用不足两个为 null；一个都没有时为 null。
 
-雪况区位于雪场详情顶部，合并附近测站数据与雪道、缆车开放状态。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。雪道与缆车开放状态未知时链接运营方页面。
+雪况区位于雪场详情顶部，合并模型累计与附近测站数据。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。
 
 历史预报与准确性位于查询点详情。点击「获取并保存快照」由 Worker 从 Open-Meteo 获取并追加到 D1，历史可分页查看。快照保留模型值、获取时间、查询坐标、海拔、单位与当地有效日期。当前接口的模型起报时间为未知。首次保存前无本站快照。
 

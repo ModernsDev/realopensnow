@@ -78,7 +78,7 @@ export function ForecastHistory({ resort, point, units }: { resort: Resort; poin
     {open && <>
       <div className="controls"><button onClick={save} disabled={saving}>{saving ? '保存中…' : '获取并保存快照'}</button></div>
       {saved && <p role="status">{saved}</p>}
-      {historyError && <p role="alert">{historyError} <button onClick={() => reload(value => value + 1)}>重读历史</button></p>}
+      {historyError && <p role="alert">{historyError}</p>}
       {!page && !historyError && <p role="status">正在读取历史快照…</p>}
       {page && !page.snapshots.length && <p>暂无历史快照。</p>}
       {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id}</summary><ForecastView resort={resort} mode="multi" data={data} units={units} archived /></details>)}
@@ -88,7 +88,7 @@ export function ForecastHistory({ resort, point, units }: { resort: Resort; poin
       </div>
       {station && <>
         <h3>预报准确性</h3>
-        {accuracyError ? <p role="alert">{accuracyError} <button onClick={() => reload(value => value + 1)}>重试</button></p> : accuracy ? <>
+        {accuracyError ? <p role="alert">{accuracyError}</p> : accuracy ? <>
           <div className="table-scroll" tabIndex={0} role="region" aria-label="各模型分提前量误差，可横向滚动">
             <table><thead><tr><th>模型</th><th>提前量</th><th>样本数</th><th>平均偏差（预报 − 实测，{units.snow}）</th><th>平均绝对误差 ({units.snow})</th><th>样本状态</th></tr></thead><tbody>
               {accuracy.groups.filter(group => group.count || models.slice(0, 3).some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, units.snow)}</td><td>{snow(group.mae, units.snow)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}

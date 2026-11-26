@@ -19,7 +19,6 @@ export function Observations({ resort, units, now }: { resort: Resort; units: Un
   const station = observationStations[resort.id]
   const operatorReport = operatorReports[resort.id] ?? resort.website ?? (resort.identitySources[0] === 'openskimap' ? undefined : sources[resort.identitySources[0]].url)
   const [result, setResult] = useState<Result>()
-  const [revision, setRevision] = useState(0)
   useEffect(() => {
     if (!station) return
     const controller = new AbortController()
@@ -29,7 +28,7 @@ export function Observations({ resort, units, now }: { resort: Resort; units: Un
       if (!controller.signal.aborted) setResult({ error: error.name === 'TimeoutError' ? '请求超时' : error.message })
     })
     return () => controller.abort()
-  }, [station, revision])
+  }, [station])
 
   const readings = result && 'readings' in result ? result.readings : undefined
   const loading = station && !result
@@ -47,6 +46,5 @@ export function Observations({ resort, units, now }: { resort: Resort; units: Un
       </div>)}
       <div><dt>雪道与缆车开放</dt><dd>未知{operatorReport && <> · <a href={operatorReport} target="_blank" rel="noreferrer">运营方实况</a></>}</dd></div>
     </dl>
-    {station && result && <button type="button" onClick={() => { setResult(undefined); setRevision(next => next + 1) }}>刷新雪况</button>}
   </section>
 }

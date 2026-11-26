@@ -35,6 +35,6 @@ export function Settings({ units, onUnits, weights, hidden, error, onSave }: { u
         {error ? <span role="alert" className="error">{error}</span> : saved && <span role="status">已保存</span>}
       </div>
     </form>
-    <p className="muted">权重和显示设置保存在此浏览器的 cookie 中，有效期一年；换浏览器或清除 cookie 后恢复默认。</p>
+    <p className="muted">未登录时，设置只保存在此浏览器中；登录后会同步到你的账户。</p>
   </section></>
 }

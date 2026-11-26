@@ -3,22 +3,30 @@ import assert from 'node:assert/strict'
 import { readHidden, readWeights, saveSettings } from '../src/weights.ts'
 import { availableModels, defaultWeights, spread, value, type Forecast } from '../src/weather.ts'
 
-test('weights and hidden models round-trip through cookies; corrupt, all-zero and blocked cookies are reported', () => {
+const local = (entries: Record<string, string> = {}) => {
+  const store = { getItem: (k: string) => entries[k] ?? null, setItem: (k: string, v: string) => { entries[k] = v } }
+  return () => store
+}
+const jar = (cookie = '') => ({ cookie })
+
+test('weights and hidden models round-trip through storage; corrupt and all-zero values are reported; legacy cookies migrate', () => {
   const weights = { ...defaultWeights, ecmwf_ifs025: 0, gfs_seamless: 60, gfs_hrrr: 0 }
-  let jar = 'other=1'
-  const target = { get cookie() { return jar }, set cookie(v) { const [name] = v.split('='); jar = [...jar.split('; ').filter(part => !part.startsWith(`${name}=`)), v.split(';')[0]].join('; ') } }
-  assert.equal(saveSettings(weights, ['gfs_hrrr', 'icon_d2'], target, true), null)
-  assert.deepEqual(readWeights(jar), { weights, error: null })
-  assert.deepEqual(readHidden(jar), { hidden: ['gfs_hrrr', 'icon_d2'], error: null })
-  assert.deepEqual(readWeights(`snow-weights=${encodeURIComponent(JSON.stringify({ ecmwf_ifs025: 0, gfs_seamless: 60, icon_seamless: 20 }))}`).weights, { ...defaultWeights, ecmwf_ifs025: 0, gfs_seamless: 60, icon_seamless: 20 })
-  for (const bad of ['%', '{}', encodeURIComponent('["nope"]'), encodeURIComponent(JSON.stringify(Object.keys(defaultWeights)))]) assert.ok(readHidden(`snow-hidden=${bad}`).error)
-  assert.deepEqual(readWeights(''), { weights: defaultWeights, error: null })
-  for (const bad of ['%', 'null', '[]', encodeURIComponent(JSON.stringify(Object.fromEntries(Object.keys(defaultWeights).map(id => [id, 0])))), encodeURIComponent(JSON.stringify({ ...weights, gfs_seamless: 101 })), encodeURIComponent(JSON.stringify({ unknown_model: 5 }))]) {
-    const result = readWeights(`snow-weights=${bad}`)
+  const storage = local()
+  assert.equal(saveSettings(weights, ['gfs_hrrr', 'icon_d2'], storage), null)
+  assert.deepEqual(readWeights(jar(), storage), { weights, error: null })
+  assert.deepEqual(readHidden(jar(), storage), { hidden: ['gfs_hrrr', 'icon_d2'], error: null })
+  const legacy = jar(`snow-weights=${encodeURIComponent(JSON.stringify({ ecmwf_ifs025: 0, gfs_seamless: 60, icon_seamless: 20 }))}`)
+  const migrated = local()
+  assert.deepEqual(readWeights(legacy, migrated).weights, { ...defaultWeights, ecmwf_ifs025: 0, gfs_seamless: 60, icon_seamless: 20 })
+  assert.equal(legacy.cookie, 'snow-weights=; Path=/; Max-Age=0')
+  for (const bad of ['{}', '["nope"]', JSON.stringify(Object.keys(defaultWeights))]) assert.ok(readHidden(jar(), local({ 'snow-hidden': bad })).error)
+  assert.deepEqual(readWeights(jar(), local()), { weights: defaultWeights, error: null })
+  for (const bad of ['{', 'null', '[]', JSON.stringify(Object.fromEntries(Object.keys(defaultWeights).map(id => [id, 0]))), JSON.stringify({ ...weights, gfs_seamless: 101 }), JSON.stringify({ unknown_model: 5 })]) {
+    const result = readWeights(jar(), local({ 'snow-weights': bad }))
     assert.equal(result.weights, defaultWeights)
     assert.ok(result.error)
   }
-  assert.ok(saveSettings(weights, [], { get cookie() { return '' }, set cookie(_) {} }, true))
+  assert.ok(saveSettings(weights, [], () => ({ getItem: () => null, setItem() { throw new Error('denied') } })))
 })
 
 test('custom weights drive the blend; disabled models are ignored and a sole enabled model stands alone', () => {

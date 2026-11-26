@@ -31,9 +31,20 @@ export async function me(request, env, url) {
   if (!session) return json({ error: 'unauthenticated' }, 401)
   const userId = session.user.id
   if (request.method === 'GET') {
-    const row = await env.DB.prepare('SELECT payload FROM user_data WHERE user_id = ?').bind(userId).first()
+    const [settings, favorites, locations] = await env.DB.batch([
+      env.DB.prepare('SELECT units, weights, hidden_models FROM user_settings WHERE user_id = ?').bind(userId),
+      env.DB.prepare('SELECT resort_id FROM user_favorites WHERE user_id = ? ORDER BY position').bind(userId),
+      env.DB.prepare('SELECT id, name, lat, lon, elevation, timezone, created_on FROM user_locations WHERE user_id = ? ORDER BY position').bind(userId),
+    ])
+    const row = settings.results[0]
     const { name, email, image } = session.user
-    return json({ user: { name, email, image: image ?? null }, data: row ? JSON.parse(row.payload) : null })
+    return json({ user: { name, email, image: image ?? null }, data: row ? {
+      favorites: favorites.results.map(f => f.resort_id),
+      customLocations: locations.results.map(({ created_on, ...l }) => ({ ...l, createdOn: created_on })),
+      weights: JSON.parse(row.weights),
+      hidden: JSON.parse(row.hidden_models),
+      units: JSON.parse(row.units),
+    } : null })
   }
   if (request.method !== 'PUT') return new Response(null, { status: 405 })
   if (request.headers.get('origin') !== url.origin) return new Response(null, { status: 403 })
@@ -42,7 +53,15 @@ export async function me(request, env, url) {
   let data
   try { data = JSON.parse(text) } catch { return new Response(null, { status: 400 }) }
   if (!validUserData(data)) return new Response(null, { status: 400 })
-  await env.DB.prepare('INSERT INTO user_data (user_id, payload, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT (user_id) DO UPDATE SET payload = ?2, updated_at = ?3')
-    .bind(userId, JSON.stringify(data), Date.now()).run()
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO user_settings (user_id, units, weights, hidden_models, updated_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT (user_id) DO UPDATE SET units = ?2, weights = ?3, hidden_models = ?4, updated_at = ?5')
+      .bind(userId, JSON.stringify(data.units), JSON.stringify(data.weights), JSON.stringify(data.hidden), Date.now()),
+    env.DB.prepare('DELETE FROM user_favorites WHERE user_id = ?').bind(userId),
+    env.DB.prepare('INSERT INTO user_favorites (user_id, resort_id, position) SELECT ?1, value, key FROM json_each(?2)').bind(userId, JSON.stringify(data.favorites)),
+    env.DB.prepare('DELETE FROM user_locations WHERE user_id = ?').bind(userId),
+    env.DB.prepare(`INSERT INTO user_locations (user_id, id, position, name, lat, lon, elevation, timezone, created_on)
+      SELECT ?1, value ->> '$.id', key, value ->> '$.name', value ->> '$.lat', value ->> '$.lon', value ->> '$.elevation', value ->> '$.timezone', value ->> '$.createdOn' FROM json_each(?2)`)
+      .bind(userId, JSON.stringify(data.customLocations)),
+  ])
   return new Response(null, { status: 204 })
 }

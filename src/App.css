@@ -98,15 +98,8 @@ main { padding-block: 24px 32px; min-width: 0; }
 .timeline-ticks span:last-child { transform: translateX(-100%); }
 .timeline-ticks span:last-child::before { left: auto; right: 0; }
 .timeline-ticks .today { color: var(--blue); font-weight: 600; }
-.forecast-context { padding: 10px 24px 0; margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .model-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px 0; margin: 16px 24px 0; padding: 0; }
-.model-totals.simple { grid-template-columns: minmax(0, 1fr); }
 .model-totals > div { padding: 4px 12px; border-left: 1px solid var(--line); }
-.model-totals.simple { margin-top: 6px; }
-.model-totals.simple > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 0; border: 0; }
-.model-totals.simple span { display: inline; margin-left: 10px; }
-.model-totals.simple span + span { margin-left: 0; }
-.model-totals.simple span + span::before { content: "·"; margin: 0 6px; }
 .model-totals dt { display: flex; align-items: center; gap: 7px; font-size: 14px; color: var(--muted); }
 .model-totals i, .legend i { width: 10px; height: 10px; border-radius: 2px; }
 .model-totals dd { margin: 0; }
@@ -153,7 +146,7 @@ td:first-child, th:first-child { text-align: left; }
 .catalog td { vertical-align: top; }
 .catalog details { margin-top: 10px; }
 .catalog .catalog { padding-inline: 0; }
-.catalog .forecast-context, .catalog .chart-heading { padding-inline: 0; }
+.catalog .chart-heading { padding-inline: 0; }
 .catalog .model-totals, .catalog .chart { margin-inline: 0; }
 .observation-section { border-top: 0; border-bottom: 1px solid var(--line); }
 .observation-section button { margin-top: 4px; }
@@ -162,12 +155,13 @@ td:first-child, th:first-child { text-align: left; }
 .observation-readings dt { color: var(--muted); }
 .observation-readings dd { margin: 2px 0 0; }
 .observation-readings dd strong { font-size: 24px; font-weight: 600; }
+.observation-readings dd span { display: block; font-size: 13px; color: var(--muted); }
 
 .report { margin-top: 24px; padding: 24px; }
 .report p { font-size: 15px; line-height: 1.75; margin-bottom: 8px; }
 .report p.muted { font-size: 13px; }
 .report details { margin-top: 14px; }
-.report details .forecast-context, .report details .chart-heading, .report details .catalog, .report details .footnote { padding-inline: 0; }
+.report details .chart-heading, .report details .catalog, .report details .footnote { padding-inline: 0; }
 .report details .model-totals, .report details .chart, .report details .table-scroll { margin-inline: 0; }
 .report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
 .report-tile { display: flex; flex-direction: column; gap: 10px; min-height: 220px; padding: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow-wrap: anywhere; }
@@ -245,7 +239,7 @@ td:first-child, th:first-child { text-align: left; }
   .resort { flex: 0 0 220px; background: var(--panel); border: 1px solid var(--line); }
   .resort + .resort { margin-top: 0; }
     .detail-header, .catalog, .compare, .report { padding-inline: 16px; }
-  .forecast-context, .chart-heading, .footnote { padding-inline: 16px; }
+  .chart-heading, .footnote { padding-inline: 16px; }
   .table-scroll { margin-inline: 16px; }
   .model-totals { margin-inline: 16px; }
   .model-totals > div { padding: 4px 8px 4px 10px; }

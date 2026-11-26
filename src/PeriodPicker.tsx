@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { forecastPeriods, timeline, type Period } from './weather'
+import { forecastPeriods, offsetLabel, timeline, type Period } from './weather'
 
 export function PeriodPicker({ period, onSelect, periods = forecastPeriods }: { period: number; onSelect: (period: number) => void; periods?: readonly Period[] }) {
   return <div className="forecast-periods" role="group" aria-label="预报时段">
@@ -7,15 +7,12 @@ export function PeriodPicker({ period, onSelect, periods = forecastPeriods }: { 
   </div>
 }
 
-const offsetLabel = (n: number) => n === 0 ? '今天' : n === -1 ? '昨天' : n === 1 ? '明天' : n < 0 ? `${-n} 天前` : `${n} 天后`
-
 export function TimelinePicker({ range: [from, to], today, onChange }: { range: [number, number]; today: string; onChange: (range: [number, number]) => void }) {
   const span = timeline.max - timeline.min
   const position = (n: number) => (n - timeline.min) / span
   const date = (n: number) => new Date(Date.parse(`${today}T12:00:00Z`) + n * 86400000).toISOString().slice(5, 10)
   const ticks = Array.from({ length: span + 1 }, (_, i) => timeline.min + i)
   return <div className="timeline" role="group" aria-label="日期范围">
-    <p className="timeline-head" aria-live="polite"><strong>{date(from)} 至 {date(to)}</strong> · {offsetLabel(from)} 至 {offsetLabel(to)} · 共 {to - from + 1} 天</p>
     <div className="timeline-track" style={{ '--from': position(from), '--to': position(to), '--today': position(0) } as CSSProperties}>
       <div className="timeline-fill" />
       <div className="timeline-today" />

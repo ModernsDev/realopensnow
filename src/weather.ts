@@ -53,6 +53,7 @@ export const forecastPeriods = [
 export const defaultPeriod = 4
 export type Period = readonly [string, number, number]
 export const timeline = { min: -7, max: 14 } as const
+export const offsetLabel = (n: number) => n === 0 ? '今天' : n === -1 ? '昨天' : n === 1 ? '明天' : n < 0 ? `${-n} 天前` : `${n} 天后`
 export const defaultRange: [number, number] = [-7, 6]
 const modelValues = (f: DailySeries, field: string, i: number, all = false) => (all ? models : visibleModels(f)).flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null

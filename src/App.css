@@ -77,10 +77,8 @@ main { padding-block: 24px 32px; min-width: 0; }
 .controls label { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .controls select { min-width: 0; max-width: 100%; }
 .controls select[aria-label="海拔"] { width: 300px; }
-.detail-periods { padding: 12px 24px 0; }
-.timeline { max-width: 760px; }
-.timeline-head { margin: 0 0 2px; font-size: 13px; color: var(--muted); }
-.timeline-head strong { color: var(--ink); font-size: 15px; }
+.chart-span { margin-right: auto; font-size: 13px; color: var(--muted); }
+.chart-timeline { padding: 8px 24px 0; }
 .timeline-track { position: relative; height: 28px; }
 .timeline-track::before, .timeline-fill { content: ""; position: absolute; top: 12px; height: 4px; border-radius: 2px; }
 .timeline-track::before { left: 10px; right: 10px; background: var(--line); }
@@ -125,8 +123,8 @@ main { padding-block: 24px 32px; min-width: 0; }
 .day.today { position: relative; }
 .day.today::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; border-left: 2px dashed var(--line-strong); }
 .day.today em { position: absolute; left: -5px; top: -2px; font-size: 11px; font-style: normal; color: var(--blue); }
-.chart.days-14 { gap: 10px; }
-.chart.days-14 .day > span { font-size: 11px; white-space: nowrap; }
+.chart.long { gap: 8px; min-width: calc(var(--days) * 42px); }
+.chart.long .day > span { font-size: 11px; white-space: nowrap; }
 tr.past > * { color: var(--muted); }
 tr.today > * { border-top: 2px solid var(--blue); }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
@@ -252,12 +250,11 @@ td:first-child, th:first-child { text-align: left; }
   .model-totals { margin-inline: 16px; }
   .model-totals > div { padding: 4px 8px 4px 10px; }
   .model-totals strong { font-size: 25px; }
-  .detail-periods { padding-inline: 16px; }
+  .chart-timeline { padding-inline: 16px; }
   .controls { width: 100%; }
   .controls select[aria-label="海拔"] { flex: 1; width: 0; }
   .controls label:has([aria-label="海拔"]) { flex-basis: 100%; }
   .chart { min-width: 560px; margin-inline: 16px; }
-  .chart.days-14 { min-width: 860px; }
   .error button { display: block; margin: 10px 0 0; }
 }
 .unit-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }

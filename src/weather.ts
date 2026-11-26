@@ -5,39 +5,41 @@ export const models = [
   { id: 'ecmwf_ifs025', name: 'ECMWF', color: '#1d5fc4', weight: 50 },
   { id: 'gfs_seamless', name: 'GFS', color: '#23a094', weight: 25 },
   { id: 'icon_seamless', name: 'ICON', color: '#ec8a32', weight: 25 },
-  { id: 'ecmwf_aifs025_single', name: 'AIFS', color: '#7aa7ee', weight: 0 },
-  { id: 'ncep_aigfs025', name: 'AIGFS', color: '#7bd0b8', weight: 0 },
-  { id: 'ncep_nbm_conus', name: 'NBM', color: '#7a4fb5', weight: 0 },
-  { id: 'gfs_hrrr', name: 'HRRR', color: '#c43d6b', weight: 0 },
-  { id: 'gem_global', name: 'GDPS', color: '#8a6d3b', weight: 0 },
-  { id: 'gem_regional', name: 'RDPS', color: '#c2a25a', weight: 0 },
-  { id: 'gem_hrdps_continental', name: 'HRDPS', color: '#5c6f7f', weight: 0 },
-  { id: 'icon_eu', name: 'ICON-EU', color: '#f2bd85', weight: 0 },
-  { id: 'icon_d2', name: 'ICON-D2', color: '#a8501a', weight: 0 },
+  { id: 'ecmwf_aifs025_single', name: 'AIFS', color: '#7aa7ee', weight: 15 },
+  { id: 'ncep_aigfs025', name: 'AIGFS', color: '#7bd0b8', weight: 10 },
+  { id: 'ncep_nbm_conus', name: 'NBM', color: '#7a4fb5', weight: 20 },
+  { id: 'gfs_hrrr', name: 'HRRR', color: '#c43d6b', weight: 10 },
+  { id: 'gem_global', name: 'GDPS', color: '#8a6d3b', weight: 15 },
+  { id: 'gem_regional', name: 'RDPS', color: '#c2a25a', weight: 10 },
+  { id: 'gem_hrdps_continental', name: 'HRDPS', color: '#5c6f7f', weight: 10 },
+  { id: 'icon_eu', name: 'ICON-EU', color: '#f2bd85', weight: 15 },
+  { id: 'icon_d2', name: 'ICON-D2', color: '#a8501a', weight: 10 },
 ]
-export const coreModels = models.filter(m => m.weight > 0)
-export const availableModels = (f: DailySeries, field?: string) => models.filter(m => (field ? [field] : ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
+export const visibleModels = (f: Pick<DailySeries, 'hidden'>) => models.filter(m => !f.hidden?.includes(m.id))
+export const availableModels = (f: DailySeries, field?: string) => visibleModels(f).filter(m => (field ? [field] : ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
 export const weighted = { id: 'weighted', name: '加权综合', color: '#1559b7' }
 export const modes = { simple: '简化', multi: '多模型比较' } as const
 export type Mode = keyof typeof modes
 export type Weights = Record<string, number>
-export const defaultWeights: Weights = Object.fromEntries(coreModels.map(m => [m.id, m.weight]))
-export function weightShares(weights: Weights): Weights {
-  const sum = coreModels.reduce((n, m) => n + weights[m.id], 0)
-  return Object.fromEntries(coreModels.map(m => [m.id, Math.round(weights[m.id] / sum * 1000) / 10]))
+export const defaultWeights: Weights = Object.fromEntries(models.map(m => [m.id, m.weight]))
+export function weightShares(weights: Weights, ids = models.map(m => m.id)): Weights {
+  const sum = ids.reduce((n, id) => n + weights[id], 0)
+  return Object.fromEntries(ids.map(id => [id, Math.round(weights[id] / sum * 1000) / 10]))
 }
-export function weightLabel(weights: Weights = defaultWeights) {
-  const shares = weightShares(weights)
-  return coreModels.map(m => `${m.name} ${shares[m.id]}%`).join(' · ')
+export function weightLabel(weights: Weights = defaultWeights, f?: DailySeries) {
+  const used = models.filter(m => weights[m.id] > 0 && (!f || Object.keys(f.daily).some(key => key.endsWith(`_${m.id}`) && f.daily[key].some(n => n !== null))))
+  const shares = weightShares(weights, used.map(m => m.id))
+  return used.map(m => `${m.name} ${shares[m.id]}%`).join(' · ')
 }
 export type Forecast = {
   weights?: Weights
+  hidden?: string[]
   dates: string[]; daily: Record<string, (number | null)[]>; requested: string; fetched: string
   source: string; elevation: number; timezone: string
   grid: { lat: number; lon: number }; modelStatus: Record<string, string>
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
-export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights'>
+export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights' | 'hidden'>
 export type ForecastWithReport = Forecast & { extended: Forecast; past: DailySeries; report: ReturnType<typeof dailyReport> }
 export const forecastPeriods = [
   ['今天', 0, 1],
@@ -52,23 +54,23 @@ export const defaultPeriod = 4
 export type Period = readonly [string, number, number]
 export const timeline = { min: -7, max: 14 } as const
 export const defaultRange: [number, number] = [-7, 6]
-const modelValues = (f: DailySeries, field: string, i: number) => models.flatMap(m => {
+const modelValues = (f: DailySeries, field: string, i: number, all = false) => (all ? models : visibleModels(f)).flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
   return n === null ? [] : [{ ...m, n }]
 })
 export function value(f: DailySeries, field: string, model: string, i: number): number | null {
   if (model !== weighted.id) return f.daily[`${field}_${model}`]?.[i] ?? null
   const weights = f.weights ?? defaultWeights
-  const enabled = coreModels.filter(m => weights[m.id] > 0).length
-  const available = modelValues(f, field, i).filter(m => weights[m.id] > 0)
-  if (available.length < Math.min(2, enabled)) return null
+  const enabled = models.filter(m => weights[m.id] > 0 && f.daily[`${field}_${m.id}`]?.some(n => n !== null)).length
+  const available = modelValues(f, field, i, true).filter(m => weights[m.id] > 0)
+  if (!available.length || available.length < Math.min(2, enabled)) return null
   return available.reduce((sum, m) => sum + m.n * weights[m.id], 0) / available.reduce((sum, m) => sum + weights[m.id], 0)
 }
 export function spread(f: DailySeries, field: string, i: number) {
   const values = modelValues(f, field, i).map(m => m.n)
   return values.length < 2 ? null : { low: Math.min(...values), high: Math.max(...values) }
 }
-export const missingModels = (f: DailySeries, i: number) => coreModels.filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
+export const missingModels = (f: DailySeries, i: number) => availableModels(f).filter(m => (f.weights ?? defaultWeights)[m.id] > 0 && ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max'].some(field => value(f, field, m.id, i) === null)).map(m => m.name)
 export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
 export function total(f: DailySeries, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
@@ -94,8 +96,8 @@ export function slicePeriod<T extends DailySeries>(data: T, start: number, end: 
   return { ...data, dates: data.dates.slice(start, end), daily, modelStatus: statuses(daily) }
 }
 export function rangeSeries(data: Forecast & { past?: DailySeries; extended?: Forecast }, from: number, to: number) {
-  const past = data.past && from < 0 ? slicePeriod({ ...data.past, weights: data.weights }, data.past.dates.length + from, data.past.dates.length + Math.min(to, -1) + 1) : undefined
-  const future = to >= 0 ? { ...slicePeriod(data.extended ?? data, Math.max(from, 0), to + 1), weights: data.weights } : undefined
+  const past = data.past && from < 0 ? slicePeriod({ ...data.past, weights: data.weights, hidden: data.hidden }, data.past.dates.length + from, data.past.dates.length + Math.min(to, -1) + 1) : undefined
+  const future = to >= 0 ? { ...slicePeriod(data.extended ?? data, Math.max(from, 0), to + 1), weights: data.weights, hidden: data.hidden } : undefined
   return { past, future }
 }
 export function pastDates(requested: string, timezone: string) {
@@ -192,18 +194,11 @@ export function dailyReport(data: Forecast, resort: Resort) {
   const blocked = reportBlockReason(data, resort)
   if (blocked) return { blocked } as const
   if (data.dates.length !== 7) return { blocked: '预报未覆盖完整的七个当地日期。' } as const
-  const gaps = coreModels.flatMap(model => {
-    const fields = [
-      ['降雪', ['snowfall_sum']],
-      ['阵风', ['wind_gusts_10m_max']],
-      ['气温', ['temperature_2m_min', 'temperature_2m_max']],
-    ] as const
-    const missing = fields.filter(([, keys]) => keys.some(key => data.dates.some((_, i) => value(data, key, model.id, i) === null)))
-    return missing.length ? [`${model.name} ${missing.map(([label]) => label).join('、')}`] : []
-  })
-  if (gaps.length) return { blocked: `七日预报数据不完整，缺少 ${gaps.join('；')}。` } as const
+  const gaps = ([['降雪', ['snowfall_sum']], ['阵风', ['wind_gusts_10m_max']], ['气温', ['temperature_2m_min', 'temperature_2m_max']]] as const)
+    .filter(([, keys]) => keys.some(key => data.dates.some((_, i) => value(data, key, weighted.id, i) === null))).map(([label]) => label)
+  if (gaps.length) return { blocked: `七日预报数据不完整，加权综合缺少 ${gaps.join('、')}。` } as const
   const today = (field: string) => modelValues(data, field, 0).map(m => m.n)
-  const totals = models.map(m => total(data, m.id)).filter(n => n !== null)
+  const totals = visibleModels(data).map(m => total(data, m.id)).filter(n => n !== null)
   return {
     today: modelValues(data, 'snowfall_sum', 0).map(({ name, n }) => ({ name, snowfall: n })),
     lowTotal: Math.min(...totals),

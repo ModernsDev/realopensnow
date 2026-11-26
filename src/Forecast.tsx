@@ -1,4 +1,4 @@
-import { availableModels, missingModels, modes, models, snow, spread, total, value, weighted, weightLabel, defaultRange, rangeSeries, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
+import { availableModels, visibleModels, missingModels, modes, snow, spread, total, value, weighted, weightLabel, defaultRange, rangeSeries, type DailySeries, type Mode, type Forecast, type ForecastWithReport, type Resort } from './weather'
 import { elevation, temp, wind, type Units } from './units'
 
 export function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (mode: Mode) => void }) {
@@ -17,7 +17,7 @@ export function Report({ resort, data, units, mode }: { resort: Resort; data: Fo
       <p><strong>七日加权累计</strong> · {snow(total(data, weighted.id), units.snow)} {units.snow}（模型范围 {snow(summary.lowTotal, units.snow)}–{snow(summary.highTotal, units.snow)} {units.snow}）</p>
       <p><strong>当日加权阵风</strong> · {wind(value(data, 'wind_gusts_10m_max', weighted.id, 0), units)} {units.wind}</p>
       <p><strong>当日加权气温</strong> · {temp(value(data, 'temperature_2m_min', weighted.id, 0), units)} 至 {temp(value(data, 'temperature_2m_max', weighted.id, 0), units)} {units.temperature}</p>
-      <p className="muted">权重 {weightLabel(data.weights)}</p>
+      <p className="muted">权重 {weightLabel(data.weights, data)}</p>
     </> : <>
     <p><strong>当日预报降雪</strong> · {summary.today.map(model => `${model.name} ${snow(model.snowfall, units.snow)} ${units.snow}`).join(' / ')}</p>
     <p><strong>七日模型分歧</strong> · {data.dates[0]} 至 {data.dates.at(-1)}，各模型累计预报降雪 {snow(summary.lowTotal, units.snow)}–{snow(summary.highTotal, units.snow)} {units.snow}</p>
@@ -62,11 +62,11 @@ export function ForecastView({ resort, data, units, id, mode, days = defaultRang
   const series = simple ? [weighted] : snowModels
   const { past, future } = rangeSeries(data, ...days)
   const sum = (future ?? past)!
-  const shown = past && future ? { weights: data.weights, dates: [...past.dates, ...future.dates], daily: Object.fromEntries(Object.keys(future.daily).map(key => [key, [...past.daily[key], ...future.daily[key]]])) } : sum
+  const shown = past && future ? { weights: data.weights, hidden: data.hidden, dates: [...past.dates, ...future.dates], daily: Object.fromEntries(Object.keys(future.daily).map(key => [key, [...past.daily[key], ...future.daily[key]]])) } : sum
   const split = past ? past.dates.length : 0
   const label = `${shown.dates[0].slice(5)}${shown.dates.length > 1 ? ` 至 ${shown.dates.at(-1)!.slice(5)} ` : ' '}`
   const sumLabel = future ? `${past ? '未来 ' : ''}${future.dates.length} 天预报累计` : `过去 ${past!.dates.length} 天累计`
-  const totals = models.map(m => total(sum, m.id)).filter(n => n !== null)
+  const totals = visibleModels(data).map(m => total(sum, m.id)).filter(n => n !== null)
   const range = (i: number) => {
     const s = spread(shown, 'snowfall_sum', i)
     return s ? `${snow(s.low, units.snow)}–${snow(s.high, units.snow)}` : '—'

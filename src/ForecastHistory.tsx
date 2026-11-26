@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { waterburyPoint, type QueryPoint, type Resort } from './catalog'
-import { coreModels, models, snow, type Forecast } from './weather'
+import { models, snow, type Forecast } from './weather'
 import { ForecastView } from './Forecast'
 import type { Units } from './units'
 
@@ -91,7 +91,7 @@ export function ForecastHistory({ resort, point, units }: { resort: Resort; poin
         {accuracyError ? <p role="alert">{accuracyError} <button onClick={() => reload(value => value + 1)}>重试</button></p> : accuracy ? <>
           <div className="table-scroll" tabIndex={0} role="region" aria-label="各模型分提前量误差，可横向滚动">
             <table><thead><tr><th>模型</th><th>提前量</th><th>样本数</th><th>平均偏差（预报 − 实测，{units.snow}）</th><th>平均绝对误差 ({units.snow})</th><th>样本状态</th></tr></thead><tbody>
-              {accuracy.groups.filter(group => group.count || coreModels.some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, units.snow)}</td><td>{snow(group.mae, units.snow)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
+              {accuracy.groups.filter(group => group.count || models.slice(0, 3).some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, units.snow)}</td><td>{snow(group.mae, units.snow)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
             </tbody></table>
           </div>
         </> : <p role="status">正在核对预报与观测…</p>}

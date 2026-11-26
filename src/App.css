@@ -193,7 +193,9 @@ td:first-child, th:first-child { text-align: left; }
 .error button { margin-left: 12px; color: var(--ink); }
 
 .settings { padding: 24px; max-width: 760px; }
-.weight-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 84px 76px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.weight-row { display: grid; grid-template-columns: 90px 64px minmax(0, 1fr) 84px 76px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.weight-row .show-toggle { font-weight: 400; gap: 6px; }
+.weight-row .show-toggle input { width: auto; }
 .weight-row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .weight-row i { width: 10px; height: 10px; border-radius: 2px; }
 .weight-row input { width: 100%; min-width: 0; }
@@ -226,7 +228,7 @@ td:first-child, th:first-child { text-align: left; }
   .topbar-inner, .page-head-inner, main { padding-inline: 16px; }
   .topbar nav { justify-content: space-between; gap: 0; overflow-x: auto; }
   .settings { padding: 20px 16px; }
-  .weight-row { grid-template-columns: 76px minmax(0, 1fr) 72px; gap: 8px; }
+  .weight-row { grid-template-columns: 76px 64px minmax(0, 1fr) 72px; gap: 8px; }
   .weight-row output { grid-column: 2 / -1; }
   .topbar nav button { padding: 0 4px; font-size: 14px; }
   .actions { width: 100%; margin-top: 10px; }

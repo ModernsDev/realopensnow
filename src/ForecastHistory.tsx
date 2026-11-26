@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { waterburyPoint, type QueryPoint, type Resort } from './catalog'
 import { models, snow, type Forecast } from './weather'
 import { ForecastView } from './Forecast'
+import type { Units } from './units'
 
 type Snapshot = { id: number; data: Forecast }
 type HistoryPage = { snapshots: Snapshot[]; next: number | null }
@@ -17,7 +18,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
-export function ForecastHistory({ resort, point, unit }: { resort: Resort; point: QueryPoint; unit: string }) {
+export function ForecastHistory({ resort, point, units }: { resort: Resort; point: QueryPoint; units: Units }) {
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState<HistoryPage>()
   const [accuracy, setAccuracy] = useState<Accuracy>()
@@ -80,7 +81,7 @@ export function ForecastHistory({ resort, point, unit }: { resort: Resort; point
       {historyError && <p role="alert">{historyError} <button onClick={() => reload(value => value + 1)}>重读历史</button></p>}
       {!page && !historyError && <p role="status">正在读取历史快照…</p>}
       {page && !page.snapshots.length && <p>暂无历史快照。</p>}
-      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id}</summary><ForecastView resort={resort} mode="multi" data={data} unit={unit} archived /></details>)}
+      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id}</summary><ForecastView resort={resort} mode="multi" data={data} units={units} archived /></details>)}
       <div className="controls">
         {before !== null && <button onClick={() => go(null)}>最新快照</button>}
         {page?.next != null && <button onClick={() => go(page.next)}>更早的快照</button>}
@@ -89,8 +90,8 @@ export function ForecastHistory({ resort, point, unit }: { resort: Resort; point
         <h3>预报准确性</h3>
         {accuracyError ? <p role="alert">{accuracyError} <button onClick={() => reload(value => value + 1)}>重试</button></p> : accuracy ? <>
           <div className="table-scroll" tabIndex={0} role="region" aria-label="各模型分提前量误差，可横向滚动">
-            <table><thead><tr><th>模型</th><th>提前量</th><th>样本数</th><th>平均偏差（预报 − 实测，{unit}）</th><th>平均绝对误差 ({unit})</th><th>样本状态</th></tr></thead><tbody>
-              {accuracy.groups.filter(group => group.count || models.slice(0, 3).some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, unit)}</td><td>{snow(group.mae, unit)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
+            <table><thead><tr><th>模型</th><th>提前量</th><th>样本数</th><th>平均偏差（预报 − 实测，{units.snow}）</th><th>平均绝对误差 ({units.snow})</th><th>样本状态</th></tr></thead><tbody>
+              {accuracy.groups.filter(group => group.count || models.slice(0, 3).some(m => m.id === group.model)).map(group => <tr key={`${group.model}-${group.lead}`}><td>{models.find(model => model.id === group.model)?.name}</td><td>{group.lead * 24}–&lt;{(group.lead + 1) * 24} 小时</td><td>{group.count}</td><td>{snow(group.bias, units.snow)}</td><td>{snow(group.mae, units.snow)}</td><td>{group.insufficient ? '样本不足' : '—'}</td></tr>)}
             </tbody></table>
           </div>
         </> : <p role="status">正在核对预报与观测…</p>}

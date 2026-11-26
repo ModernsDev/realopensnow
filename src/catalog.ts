@@ -1,3 +1,4 @@
+import { elevation, type Units } from './units.ts'
 import { northAmerica, type NorthAmericaResort } from './northAmerica.ts'
 
 export const verifiedOn = '2026-11-17'
@@ -151,4 +152,4 @@ export function queryBlockReason(resort: Resort, query: QueryPoint | undefined) 
   if (query.elevation.status === 'pending' || query.elevation.value === null) return '查询点海拔待核实，暂不请求预报或生成雪报。'
   return null
 }
-export const elevationLabel = (point: QueryPoint) => point.elevation.value === null ? '海拔待核实' : `${point.elevation.value.toLocaleString('zh-CN')} m${point.elevation.status === 'pending' ? '（待核实）' : ''}`
+export const elevationLabel = (point: QueryPoint, units: Units) => point.elevation.value === null ? '海拔待核实' : `${elevation(point.elevation.value, units)} ${units.elevation}${point.elevation.status === 'pending' ? '（待核实）' : ''}`

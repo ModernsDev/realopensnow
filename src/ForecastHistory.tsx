@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { waterburyPoint, type QueryPoint, type Resort } from './catalog'
+import { waterburyPoint, type QueryPoint } from './catalog'
 import { models, snow, type Forecast } from './weather'
 import { ForecastView } from './Forecast'
 import type { Units } from './units'
@@ -18,7 +18,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
-export function ForecastHistory({ resort, point, units }: { resort: Resort; point: QueryPoint; units: Units }) {
+export function ForecastHistory({ point, units }: { point: QueryPoint; units: Units }) {
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState<HistoryPage>()
   const [accuracy, setAccuracy] = useState<Accuracy>()
@@ -81,7 +81,7 @@ export function ForecastHistory({ resort, point, units }: { resort: Resort; poin
       {historyError && <p role="alert">{historyError}</p>}
       {!page && !historyError && <p role="status">正在读取历史快照…</p>}
       {page && !page.snapshots.length && <p>暂无历史快照。</p>}
-      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id}</summary><ForecastView resort={resort} mode="multi" data={data} units={units} archived /></details>)}
+      {page?.snapshots.map(({ id, data }) => <details key={id}><summary>快照 #{id}</summary><ForecastView mode="multi" data={data} units={units} archived /></details>)}
       <div className="controls">
         {before !== null && <button onClick={() => go(null)}>最新快照</button>}
         {page?.next != null && <button onClick={() => go(page.next)}>更早的快照</button>}

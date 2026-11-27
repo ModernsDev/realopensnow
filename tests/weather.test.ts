@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, aggregatePeriods, upcomingNights, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -41,6 +41,86 @@ test('local daily sums include exactly 23/25 DST hours and snowfall belongs to i
   }
   const japan = hours('2026-11-16T16:00:00Z', 24, 'Asia/Tokyo')
   assert.ok(Math.abs(aggregateHourly(japan, ['2026-11-17'], japan.timezone).daily.snowfall_sum_gfs_seamless[0]! - 24 * 2.54) < 1e-10)
+})
+
+test('Denver day and night use the preceding hour for totals and gusts, and the timestamp for temperatures and freezing levels', () => {
+  const raw = hours('2026-11-28T01:00:00Z', 37)
+  const h = raw.hourly
+  h.snowfall_ecmwf_ifs025.fill(1)
+  h.snowfall_gfs_seamless.fill(0)
+  h.snowfall_gfs_seamless[13] = 2
+  h.snowfall_gfs_seamless[14] = 3
+  h.snowfall_gfs_seamless[25] = 5
+  h.temperature_2m_gfs_seamless[13] = 8
+  h.temperature_2m_gfs_seamless[25] = 9
+  h.temperature_2m_gfs_seamless[26] = -10
+  h.freezing_level_height_gfs_seamless[13] = 500
+  h.freezing_level_height_gfs_seamless[25] = 3000
+  h.rain_gfs_seamless[25] = 4
+  h.wind_gusts_10m_gfs_seamless[13] = 70
+  const { dates, daily } = aggregatePeriods(raw, ['2026-11-27', '2026-11-28'], raw.timezone)
+  assert.deepEqual(dates, ['2026-11-27-day', '2026-11-27-night', '2026-11-28-day', '2026-11-28-night'])
+  assert.deepEqual(daily.snowfall_sum_ecmwf_ifs025, [null, 12, 12, 12])
+  assert.deepEqual(daily.snowfall_sum_gfs_seamless, [null, 2, 8, 0])
+  assert.deepEqual(daily.wet_snowfall_sum_gfs_seamless, [null, 2, 5, 0])
+  assert.deepEqual(daily.rain_sum_gfs_seamless, [null, 12, 15, 12])
+  assert.deepEqual(daily.wind_gusts_10m_max_gfs_seamless, [null, 70, 30, 30])
+  assert.deepEqual(daily.temperature_2m_min_gfs_seamless, [null, -5, -5, -10])
+  assert.deepEqual(daily.temperature_2m_max_gfs_seamless, [null, -5, 8, 9])
+  assert.deepEqual(daily.freezing_level_height_min_gfs_seamless, [null, 1800, 500, 1800])
+  assert.deepEqual(daily.freezing_level_height_max_gfs_seamless, [null, 1800, 1800, 3000])
+})
+
+test('Denver DST nights run from local 18:00 to 06:00 and sum every elapsed hour', () => {
+  for (const [date, start, end, count] of [
+    ['2026-03-07', '2026-03-08T01:00:00Z', '2026-03-08T12:00:00Z', 11],
+    ['2026-10-31', '2026-11-01T00:00:00Z', '2026-11-01T13:00:00Z', 13],
+  ] as const) {
+    const raw = hours(start, count)
+    raw.hourly.snowfall_gfs_seamless.fill(1)
+    const series = aggregatePeriods(raw, [date], raw.timezone)
+    assert.deepEqual(series.periods[1], { date, part: 'night', start: Date.parse(start), end: Date.parse(end), hours: count })
+    assert.equal(series.daily.snowfall_sum_gfs_seamless[1], count)
+  }
+})
+
+test('incomplete period coverage and missing or invalid hours stay null independently of genuine zero', () => {
+  const raw = hours('2026-11-28T14:00:00Z', 11)
+  raw.hourly.snowfall_gfs_seamless.fill(0)
+  raw.hourly.snowfall_ecmwf_ifs025[3] = null
+  raw.hourly.rain_gfs_seamless[4] = -1
+  const { daily } = aggregatePeriods(raw, ['2026-11-28'], raw.timezone)
+  assert.deepEqual(daily.snowfall_sum_gfs_seamless, [0, null])
+  assert.deepEqual(daily.snowfall_sum_ecmwf_ifs025, [null, null])
+  assert.deepEqual(daily.rain_sum_gfs_seamless, [null, null])
+  raw.hourly.time = raw.hourly.time.map(t => t! - 3600)
+  const earlier = aggregatePeriods(raw, ['2026-11-28'], raw.timezone)
+  assert.equal(earlier.daily.snowfall_sum_gfs_seamless[0], null)
+  assert.equal(earlier.daily.temperature_2m_min_gfs_seamless[0], -5)
+})
+
+test('periods reject mismatched zones, time units, off-hour timestamps and gaps', () => {
+  const raw = hours('2026-11-28T13:00:00Z', 24)
+  const aggregate = () => aggregatePeriods(raw, ['2026-11-28'], 'America/Denver')
+  raw.timezone = 'UTC'
+  assert.throws(aggregate, /时区/)
+  raw.timezone = 'America/Denver'
+  raw.hourly_units.time = 'iso8601'
+  assert.throws(aggregate, /时间轴/)
+  raw.hourly_units.time = 'unixtime'
+  raw.hourly.time = [3601]
+  assert.throws(aggregate, /时间轴/)
+  raw.hourly.time = [3600, 10800]
+  assert.throws(aggregate, /时间轴/)
+})
+
+test('upcoming nights include an ongoing night until 06:00 and honor the requested count', () => {
+  const raw = hours('2026-11-28T01:00:00Z', 37)
+  const series = aggregatePeriods(raw, ['2026-11-27', '2026-11-28', '2026-11-29'], raw.timezone)
+  assert.deepEqual(upcomingNights(series, Date.parse('2026-11-28T03:00:00-07:00'), 2), [1, 3])
+  assert.deepEqual(upcomingNights(series, Date.parse('2026-11-28T06:00:00-07:00'), 3), [3, 5])
+  assert.deepEqual(upcomingNights(series, Date.parse('2026-11-28T12:00:00-07:00'), 1), [3])
+  assert.deepEqual(upcomingNights(series, Date.parse('2026-11-28T12:00:00-07:00'), 0), [])
 })
 
 test('rain and wet snow include the closing midnight on a 23-hour day, while freezing levels include the opening midnight', () => {
@@ -194,6 +274,8 @@ test('models without data at a location are hidden and do not block the report o
     globalThis.fetch = async () => Response.json(raw)
     const data = await forecast(resorts[0], resorts[0].points[3])
     const ids = (field?: string) => availableModels(data, field).map(m => m.id)
+    assert.deepEqual(data.periods.dates, [data.past.dates.at(-1), ...data.extended.dates].flatMap(date => [`${date}-day`, `${date}-night`]))
+    assert.equal(data.periods.daily.snowfall_sum_gfs_seamless[1], data.periods.periods[1].hours)
     assert.equal(ids().includes('icon_d2'), false)
     assert.equal(ids().includes('ecmwf_aifs025_single'), true)
     assert.equal(ids('wind_gusts_10m_max').includes('ecmwf_aifs025_single'), false)

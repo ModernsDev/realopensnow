@@ -42,7 +42,9 @@ export type Forecast = {
   query: { resortId: string; pointId: string; lat: number; lon: number; elevation: number; timezone: string }
 }
 export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights' | 'hidden'>
-export type ForecastWithReport = Forecast & { extended: Forecast; past: DailySeries; report: ReturnType<typeof dailyReport> }
+export type DayPart = 'day' | 'night'
+export type PeriodSeries = DailySeries & { periods: { date: string; part: DayPart; start: number; end: number; hours: number }[] }
+export type ForecastWithReport = Forecast & { extended: Forecast; past: DailySeries; periods: PeriodSeries; report: ReturnType<typeof dailyReport> }
 export const forecastPeriods = [
   [t('今天', 'Today'), 0, 1],
   [t('明天', 'Tomorrow'), 1, 2],
@@ -106,11 +108,15 @@ export function pastDates(requested: string, timezone: string) {
   const start = localDate(Date.parse(requested), timezone)
   return Array.from({ length: 7 }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + (i - 7) * 86400000).toISOString().slice(0, 10))
 }
-export function aggregateHourly(data: unknown, dates: string[], timezone: string) {
+function readHourly(data: unknown, timezone: string) {
   const raw = data as { timezone?: string; hourly?: Record<string, unknown>; hourly_units?: Record<string, unknown> }
   const times = raw?.hourly?.time
   if (raw?.timezone !== timezone || raw.hourly_units?.time !== 'unixtime' || !Array.isArray(times) || !times.length || times.some((t, i) => !Number.isSafeInteger(t) || t % 3600 !== 0 || (i > 0 && t - times[i - 1] !== 3600))) throw new Error(t('天气服务的时区或小时时间轴无效', 'The weather service returned an invalid time zone or hourly time axis'))
-  const daily: Forecast['daily'] = {}
+  return { times: times as number[], hourly: raw.hourly!, units: raw.hourly_units }
+}
+export function aggregateHourly(data: unknown, dates: string[], timezone: string) {
+  const raw = readHourly(data, timezone)
+  const { times } = raw
   const indicesByShift = [0, 1].map(shift => {
     const labels = times.map(t => localDate(t * 1000 - shift, timezone))
     return dates.map(date => {
@@ -119,6 +125,11 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
       return indices
     })
   })
+  const daily = aggregateFields(raw, indicesByShift)
+  return { daily, modelStatus: statuses(daily) }
+}
+function aggregateFields({ times, hourly, units }: ReturnType<typeof readHourly>, indicesByShift: number[][][]) {
+  const daily: Forecast['daily'] = {}
   function aggregate(values: (number | null)[] | null, shift: 0 | 1, operation: 'sum' | 'min' | 'max') {
     return indicesByShift[shift].map(indices => {
       if (!indices.length || !values) return null
@@ -130,8 +141,8 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
   for (const { id } of models) {
     const read = (field: string, unit: string, allowNegative = false): (number | null)[] | null => {
       const key = `${field}_${id}`
-      const values = raw.hourly![key]
-      if (!Array.isArray(values) || values.length !== times.length || raw.hourly_units![key] !== unit) return null
+      const values = hourly[key]
+      if (!Array.isArray(values) || values.length !== times.length || units[key] !== unit) return null
       return values.map(n => typeof n === 'number' && Number.isFinite(n) && (allowNegative || n >= 0) ? n : null)
     }
     const snowfall = read('snowfall', 'cm')
@@ -151,7 +162,42 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
     daily[`freezing_level_height_min_${id}`] = aggregate(freezing, 0, 'min')
     daily[`freezing_level_height_max_${id}`] = aggregate(freezing, 0, 'max')
   }
-  return { daily, modelStatus: statuses(daily) }
+  return daily
+}
+export function aggregatePeriods(data: unknown, dates: string[], timezone: string): PeriodSeries {
+  const raw = readHourly(data, timezone)
+  const hour = 3600000
+  const zone = new Intl.DateTimeFormat('en', { timeZone: timezone, timeZoneName: 'longOffset' })
+  function offsetAt(time: number) {
+    const name = zone.formatToParts(time).find(part => part.type === 'timeZoneName')!.value
+    const [h, m = 0, s = 0] = name.slice(4).split(':').map(Number)
+    return (name[3] === '-' ? -1 : 1) * (h * 3600 + m * 60 + s) * 1000
+  }
+  function toUtc(wallTime: number) {
+    const estimate = wallTime - offsetAt(wallTime)
+    return wallTime - offsetAt(estimate)
+  }
+  const periods = dates.flatMap(date => {
+    const morning = Date.parse(`${date}T06:00:00Z`)
+    const start = toUtc(morning)
+    const evening = toUtc(morning + 12 * hour)
+    const end = toUtc(morning + 24 * hour)
+    return [
+      { date, part: 'day' as const, start, end: evening, hours: (evening - start) / hour },
+      { date, part: 'night' as const, start: evening, end, hours: (end - evening) / hour },
+    ]
+  })
+  const first = raw.times[0] * 1000
+  const indicesByShift = [0, 1].map(shift => periods.map(({ start, end }) => {
+    const from = Math.ceil((start + shift - first) / hour)
+    const until = Math.ceil((end + shift - first) / hour)
+    if (from < 0 || until > raw.times.length) return []
+    return Array.from({ length: until - from }, (_, i) => from + i)
+  }))
+  return { dates: periods.map(({ date, part }) => `${date}-${part}`), periods, daily: aggregateFields(raw, indicesByShift) }
+}
+export function upcomingNights(f: PeriodSeries, now: number, count: number): number[] {
+  return f.periods.flatMap(({ part, end }, i) => part === 'night' && end > now ? [i] : []).slice(0, Math.max(0, count))
 }
 export function forecastSource(lat: number, lon: number, elevation: number, timezone: string, days = 7, pastDays = 1) {
   const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: String(days + 1), past_days: String(pastDays), models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m,rain,freezing_level_height', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
@@ -185,8 +231,9 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const batch = slicePeriod(extended, 0, 7)
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
+  const periods = aggregatePeriods(data, [dates.at(-1)!, ...extended.dates], resort.timezone)
   const report = dailyReport(batch, resort)
-  return { ...batch, extended, past, report }
+  return { ...batch, extended, past, periods, report }
 }
 
 export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string, days = 7): Forecast {

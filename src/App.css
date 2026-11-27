@@ -72,7 +72,9 @@ main { padding-block: 24px 32px; min-width: 0; }
 .mode-switch { display: inline-flex; }
 .mode-switch button { white-space: nowrap; }
 .mode-switch button:first-child { border-radius: 7px 0 0 7px; }
-.mode-switch button:last-child { border-radius: 0 7px 7px 0; margin-left: -1px; }
+.mode-switch button + button { margin-left: -1px; }
+.mode-switch button:not(:first-child):not(:last-child) { border-radius: 0; }
+.mode-switch button:last-child { border-radius: 0 7px 7px 0; }
 .mode-switch button[aria-pressed="true"], .mode-switch button[aria-pressed="true"]:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
 .controls label { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .controls select { min-width: 0; max-width: 100%; }
@@ -199,6 +201,7 @@ td:first-child, th:first-child { text-align: left; }
 .compare-controls { margin-bottom: 18px; }
 .compare th, .compare td { vertical-align: top; text-align: left; }
 .compare th span, .compare td span { display: block; }
+.compare td .grade { display: inline-block; margin-top: 4px; }
 .compare thead th span { font-weight: 400; margin-top: 2px; }
 .compare th a { display: inline-block; margin-top: 8px; }
 .compare .compare-remove { margin: 8px 0 0 8px; min-height: 28px; padding: 2px 8px; font-size: 13px; }
@@ -234,6 +237,7 @@ td:first-child, th:first-child { text-align: left; }
   .resort { flex: 0 0 220px; background: var(--panel); border: 1px solid var(--line); }
   .resort + .resort { margin-top: 0; }
     .detail-header, .catalog, .compare { padding-inline: 16px; }
+  .compare .mode-switch button { padding-inline: 8px; font-size: 13px; }
   .chart-heading, .footnote { padding-inline: 16px; }
   .table-scroll { margin-inline: 16px; }
   .model-totals { margin-inline: 16px; }

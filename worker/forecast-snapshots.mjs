@@ -24,7 +24,7 @@ export async function captureSnapshot(env, pointId, en = false) {
     batch = {
       ...forecastBatch(data, resort, point, requested, new Date().toISOString()),
       issuedAt: null,
-      units: { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h' },
+      units: { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h', rain_sum: 'mm', wet_snowfall_sum: 'cm', freezing_level_height_min: 'm', freezing_level_height_max: 'm' },
     }
     hourly = pointId === waterburyPoint.id ? hourlySnow(data) : null
   } catch (error) {

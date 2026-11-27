@@ -7,7 +7,7 @@ function hours(start: string, count: number, timezone = 'America/Denver') {
   const time = Array.from({ length: count + 2 }, (_, i) => Date.parse(start) / 1000 + (i - 1) * 3600)
   const hourly: Record<string, (number | null)[]> = { time }
   const hourly_units: Record<string, string> = { time: 'unixtime' }
-  for (const model of models) for (const [field, unit, value] of [['snowfall', 'cm', 2.54], ['temperature_2m', '°C', -5], ['wind_gusts_10m', 'km/h', 30]] as const) {
+  for (const model of models) for (const [field, unit, value] of [['snowfall', 'cm', 2.54], ['temperature_2m', '°C', -5], ['wind_gusts_10m', 'km/h', 30], ['rain', 'mm', 1], ['freezing_level_height', 'm', 1800]] as const) {
     hourly[`${field}_${model.id}`] = time.map(() => value)
     hourly_units[`${field}_${model.id}`] = unit
   }
@@ -41,6 +41,51 @@ test('local daily sums include exactly 23/25 DST hours and snowfall belongs to i
   }
   const japan = hours('2026-11-16T16:00:00Z', 24, 'Asia/Tokyo')
   assert.ok(Math.abs(aggregateHourly(japan, ['2026-11-17'], japan.timezone).daily.snowfall_sum_gfs_seamless[0]! - 24 * 2.54) < 1e-10)
+})
+
+test('rain and wet snow include the closing midnight on a 23-hour day, while freezing levels include the opening midnight', () => {
+  const raw = hours('2026-03-08T08:00:00Z', 23)
+  const h = raw.hourly
+  h.rain_gfs_seamless[0] = 100
+  h.rain_gfs_seamless[23] = 3
+  h.snowfall_gfs_seamless.fill(2)
+  h.temperature_2m_gfs_seamless.fill(-1)
+  h.temperature_2m_gfs_seamless[0] = null
+  h.temperature_2m_gfs_seamless[4] = -0.9
+  h.temperature_2m_gfs_seamless[23] = 0
+  h.snowfall_gfs_seamless[23] = 5
+  h.freezing_level_height_gfs_seamless[0] = -50
+  h.freezing_level_height_gfs_seamless[23] = 3000
+  const { daily } = aggregateHourly(raw, ['2026-03-08'], raw.timezone)
+  assert.deepEqual(daily.rain_sum_gfs_seamless, [25])
+  assert.deepEqual(daily.wet_snowfall_sum_gfs_seamless, [7])
+  assert.deepEqual(daily.freezing_level_height_min_gfs_seamless, [-50])
+  assert.deepEqual(daily.freezing_level_height_max_gfs_seamless, [1800])
+})
+
+test('invalid rain, freezing heights and either wet snow input stay missing independently of model status', () => {
+  const raw = hours('2026-11-17T08:00:00Z', 24)
+  raw.hourly_units.freezing_level_height_ecmwf_ifs025 = 'undefined'
+  raw.hourly.freezing_level_height_ecmwf_ifs025.fill(null)
+  raw.hourly_units.freezing_level_height_icon_seamless = 'undefined'
+  raw.hourly.rain_ecmwf_ifs025[1] = -1
+  raw.hourly.temperature_2m_ecmwf_ifs025[24] = null
+  raw.hourly.snowfall_gfs_seamless[2] = -1
+  raw.hourly_units.temperature_2m_icon_seamless = '°F'
+  raw.hourly_units.snowfall_gem_global = 'mm'
+  raw.hourly_units.rain_gfs_seamless = 'cm'
+  delete raw.hourly.temperature_2m_icon_d2
+  const { daily, modelStatus } = aggregateHourly(raw, ['2026-11-17'], raw.timezone)
+  for (const id of ['ecmwf_ifs025', 'icon_seamless']) {
+    assert.deepEqual(daily[`freezing_level_height_min_${id}`], [null])
+    assert.deepEqual(daily[`freezing_level_height_max_${id}`], [null])
+  }
+  for (const id of ['ecmwf_ifs025', 'gfs_seamless', 'icon_seamless', 'gem_global', 'icon_d2']) {
+    assert.deepEqual(daily[`wet_snowfall_sum_${id}`], [null])
+  }
+  assert.deepEqual(daily.rain_sum_ecmwf_ifs025, [null])
+  assert.deepEqual(daily.rain_sum_gfs_seamless, [null])
+  assert.equal(modelStatus.ecmwf_ifs025, '数据完整')
 })
 
 test('null, invalid numbers, incorrect units, missing model and partial days stay missing; genuine zero remains zero', () => {
@@ -85,6 +130,7 @@ test('API request explicitly fixes units and epoch times; network/HTTP/schema fa
     globalThis.fetch = async input => {
       const url = new URL(String(input))
       assert.equal(url.searchParams.get('timeformat'), 'unixtime')
+      assert.equal(url.searchParams.get('hourly'), 'snowfall,temperature_2m,wind_gusts_10m,rain,freezing_level_height')
       assert.equal(url.searchParams.get('temperature_unit'), 'celsius')
       assert.equal(url.searchParams.get('wind_speed_unit'), 'kmh')
       assert.equal(url.searchParams.get('precipitation_unit'), 'mm')

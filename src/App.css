@@ -248,3 +248,16 @@ td:first-child, th:first-child { text-align: left; }
 }
 .unit-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 .unit-row > span { min-width: 3em; }
+.grade { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 13px; line-height: 20px; white-space: nowrap; background: #eef2f5; color: var(--muted); }
+.grade small { font-size: 12px; }
+.grade-good { background: #e3eefc; color: #1d5fc4; }
+.grade-excellent { background: #1d5fc4; color: #fff; font-weight: 600; }
+.grade-excellent small { color: #fff; }
+.grade-wet { background: #efe6f8; color: #6b3fa0; }
+.grade-rain { background: #e2f3ea; color: #1f7a4d; }
+.grade-unknown { font-style: italic; }
+.grade-rules { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.grade-rules summary { cursor: pointer; color: var(--ink); }
+.grade-rules dl { display: grid; gap: 6px; margin: 10px 0; }
+.grade-rules dl > div { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: baseline; }
+.grade-rules dd { margin: 0; }

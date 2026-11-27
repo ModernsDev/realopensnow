@@ -1,3 +1,4 @@
+import { t } from './i18n.ts'
 import { queryBlockReason, type Resort, type QueryPoint } from './catalog.ts'
 export { resorts } from './catalog.ts'
 export type { Resort } from './catalog.ts'
@@ -18,8 +19,8 @@ export const models = [
 export const visibleModels = (f: Pick<DailySeries, 'hidden'>) => models.filter(m => !f.hidden?.includes(m.id))
 const modelStatusFields = ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']
 export const availableModels = (f: DailySeries, field?: string) => visibleModels(f).filter(m => (field ? [field] : modelStatusFields).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
-export const weighted = { id: 'weighted', name: '加权综合', color: '#1559b7' }
-export const modes = { simple: '简化', multi: '多模型比较' } as const
+export const weighted = { id: 'weighted', name: t('加权综合', 'Weighted blend'), color: '#1559b7' }
+export const modes = { simple: t('简化', 'Simple'), multi: t('多模型比较', 'Compare models') } as const
 export type Mode = keyof typeof modes
 export type Weights = Record<string, number>
 export const defaultWeights: Weights = Object.fromEntries(models.map(m => [m.id, m.weight]))
@@ -43,18 +44,18 @@ export type Forecast = {
 export type DailySeries = Pick<Forecast, 'dates' | 'daily' | 'weights' | 'hidden'>
 export type ForecastWithReport = Forecast & { extended: Forecast; past: DailySeries; report: ReturnType<typeof dailyReport> }
 export const forecastPeriods = [
-  ['今天', 0, 1],
-  ['明天', 1, 2],
-  ['后天', 2, 3],
-  ['未来 3 天', 0, 3],
-  ['未来 7 天', 0, 7],
-  ['未来 14 天', 0, 14],
-  ['第 8–14 天', 7, 14],
+  [t('今天', 'Today'), 0, 1],
+  [t('明天', 'Tomorrow'), 1, 2],
+  [t('后天', 'Day after tomorrow'), 2, 3],
+  [t('未来 3 天', 'Next 3 days'), 0, 3],
+  [t('未来 7 天', 'Next 7 days'), 0, 7],
+  [t('未来 14 天', 'Next 14 days'), 0, 14],
+  [t('第 8–14 天', 'Days 8–14'), 7, 14],
 ] as const
 export const defaultPeriod = 4
 export type Period = readonly [string, number, number]
 export const timeline = { min: -7, max: 14 } as const
-export const offsetLabel = (n: number) => n === 0 ? '今天' : n === -1 ? '昨天' : n === 1 ? '明天' : n < 0 ? `${-n} 天前` : `${n} 天后`
+export const offsetLabel = (n: number) => n === 0 ? t('今天', 'today') : n === -1 ? t('昨天', 'yesterday') : n === 1 ? t('明天', 'tomorrow') : n < 0 ? t(`${-n} 天前`, `${-n} days ago`) : t(`${n} 天后`, `in ${n} days`)
 export const defaultRange: [number, number] = [-7, 6]
 const modelValues = (f: DailySeries, field: string, i: number, all = false) => (all ? models : visibleModels(f)).flatMap(m => {
   const n = f.daily[`${field}_${m.id}`]?.[i] ?? null
@@ -108,7 +109,7 @@ export function pastDates(requested: string, timezone: string) {
 export function aggregateHourly(data: unknown, dates: string[], timezone: string) {
   const raw = data as { timezone?: string; hourly?: Record<string, unknown>; hourly_units?: Record<string, unknown> }
   const times = raw?.hourly?.time
-  if (raw?.timezone !== timezone || raw.hourly_units?.time !== 'unixtime' || !Array.isArray(times) || !times.length || times.some((t, i) => !Number.isSafeInteger(t) || t % 3600 !== 0 || (i > 0 && t - times[i - 1] !== 3600))) throw new Error('天气服务的时区或小时时间轴无效')
+  if (raw?.timezone !== timezone || raw.hourly_units?.time !== 'unixtime' || !Array.isArray(times) || !times.length || times.some((t, i) => !Number.isSafeInteger(t) || t % 3600 !== 0 || (i > 0 && t - times[i - 1] !== 3600))) throw new Error(t('天气服务的时区或小时时间轴无效', 'The weather service returned an invalid time zone or hourly time axis'))
   const daily: Forecast['daily'] = {}
   const indicesByShift = [0, 1].map(shift => {
     const labels = times.map(t => localDate(t * 1000 - shift, timezone))
@@ -169,8 +170,8 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   let data
   try {
     const response = await fetch(source, { cache: 'no-store', signal: requestSignal })
-    if (response.status === 429) throw new Error('天气服务已限流（429），请稍后重试。')
-    if (!response.ok) throw new Error(`天气服务请求失败（${response.status}）`)
+    if (response.status === 429) throw new Error(t('天气服务已限流（429），请稍后重试。', 'The weather service is rate limiting requests (429). Please try again later.'))
+    if (!response.ok) throw new Error(t(`天气服务请求失败（${response.status}）`, `Weather service request failed (${response.status})`))
     data = await response.json()
   } catch (error) {
     if (hosted && !resort.custom && !signal?.aborted) {
@@ -193,30 +194,30 @@ export function forecastBatch(data: { error?: boolean; elevation: number; latitu
   const elevation = point.elevation.value!
   const dates = forecastDates(requested, resort.timezone, days)
   const source = forecastSource(lat, lon, elevation, resort.timezone, days)
-  if (data.error) throw new Error('天气服务返回错误，无法生成预报')
-  if (data.elevation !== elevation || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) throw new Error('天气服务返回的查询高度或网格坐标无效')
+  if (data.error) throw new Error(t('天气服务返回错误，无法生成预报', 'The weather service returned an error; no forecast is available'))
+  if (data.elevation !== elevation || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) throw new Error(t('天气服务返回的查询高度或网格坐标无效', 'The weather service returned an invalid elevation or grid position'))
   const aggregated = aggregateHourly(data, dates, resort.timezone)
   return { dates, ...aggregated, requested, fetched, source, elevation, timezone: resort.timezone, grid: { lat: data.latitude, lon: data.longitude }, query: { resortId: resort.id, pointId: point.id, lat, lon, elevation, timezone: resort.timezone } }
 }
 
 export function reportBlockReason(data: Forecast, resort: Resort) {
   const location = data.query
-  if (location?.resortId !== resort.id) return '查询点与当前地点不符，暂不生成雪报。'
+  if (location?.resortId !== resort.id) return t('查询点与当前地点不符，暂不生成雪报。', 'The query point does not match this location; no report is generated.')
   const point = resort.points.find(p => p.id === location.pointId)
   const blocked = queryBlockReason(resort, point)
   if (blocked) return blocked
   const coordinates = point!.coordinates.value!
-  if (location.lat !== coordinates.lat || location.lon !== coordinates.lon || location.elevation !== point!.elevation.value || location.timezone !== resort.timezone) return '查询点证据已变更，请重新获取预报后生成雪报。'
+  if (location.lat !== coordinates.lat || location.lon !== coordinates.lon || location.elevation !== point!.elevation.value || location.timezone !== resort.timezone) return t('查询点证据已变更，请重新获取预报后生成雪报。', 'The query point has changed. Reload the forecast to generate a report.')
   return null
 }
 
 export function dailyReport(data: Forecast, resort: Resort) {
   const blocked = reportBlockReason(data, resort)
   if (blocked) return { blocked } as const
-  if (data.dates.length !== 7) return { blocked: '预报未覆盖完整的七个当地日期。' } as const
-  const gaps = ([['降雪', ['snowfall_sum']], ['阵风', ['wind_gusts_10m_max']], ['气温', ['temperature_2m_min', 'temperature_2m_max']]] as const)
+  if (data.dates.length !== 7) return { blocked: t('预报未覆盖完整的七个当地日期。', 'The forecast does not cover seven full local days.') } as const
+  const gaps = ([[t('降雪', 'snowfall'), ['snowfall_sum']], [t('阵风', 'gusts'), ['wind_gusts_10m_max']], [t('气温', 'temperature'), ['temperature_2m_min', 'temperature_2m_max']]] as const)
     .filter(([, keys]) => keys.some(key => data.dates.some((_, i) => value(data, key, weighted.id, i) === null))).map(([label]) => label)
-  if (gaps.length) return { blocked: `七日预报数据不完整，加权综合缺少 ${gaps.join('、')}。` } as const
+  if (gaps.length) return { blocked: t(`七日预报数据不完整，加权综合缺少 ${gaps.join('、')}。`, `The 7-day forecast is incomplete: the weighted blend is missing ${gaps.join(', ')}.`) } as const
   const today = (field: string) => modelValues(data, field, 0).map(m => m.n)
   const totals = visibleModels(data).map(m => total(data, m.id)).filter(n => n !== null)
   return {

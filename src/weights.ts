@@ -1,3 +1,4 @@
+import { t } from './i18n.ts'
 import { defaultWeights, models, type Weights } from './weather.ts'
 import { takeLegacyCookie, type CookieJar } from './legacyCookie.ts'
 
@@ -29,13 +30,13 @@ export function readWeights(jar: CookieJar, storage: StorageAccess): { weights: 
   if (!saved.found) return { weights: defaultWeights, error: null }
   const merged = typeof saved.value === 'object' && saved.value !== null && !Array.isArray(saved.value) ? { ...defaultWeights, ...saved.value } : null
   if (validWeights(merged)) return { weights: merged, error: null }
-  return { weights: defaultWeights, error: '已保存的权重无效，当前使用默认权重；请重新保存。' }
+  return { weights: defaultWeights, error: t('已保存的权重无效，当前使用默认权重；请重新保存。', 'Saved weights are invalid; default weights are in use. Please save again.') }
 }
 export function readHidden(jar: CookieJar, storage: StorageAccess): { hidden: string[]; error: string | null } {
   const saved = parse(jar, storage, hiddenKey)
   if (!saved.found) return { hidden: [], error: null }
   if (validHidden(saved.value)) return { hidden: saved.value, error: null }
-  return { hidden: [], error: '已保存的模型显示设置无效，当前显示全部模型；请重新保存。' }
+  return { hidden: [], error: t('已保存的模型显示设置无效，当前显示全部模型；请重新保存。', 'Saved model visibility is invalid; all models are shown. Please save again.') }
 }
 
 export function saveSettings(weights: Weights, hidden: string[], storage: StorageAccess): string | null {
@@ -44,6 +45,6 @@ export function saveSettings(weights: Weights, hidden: string[], storage: Storag
     storage().setItem(hiddenKey, JSON.stringify(hidden))
     return null
   } catch {
-    return '浏览器未保存设置；新设置仅在本页有效，刷新后丢失。'
+    return t('浏览器未保存设置；新设置仅在本页有效，刷新后丢失。', 'The browser did not save your settings; they apply to this page only and are lost on reload.')
   }
 }

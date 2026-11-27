@@ -1,10 +1,11 @@
+import { en, t } from './i18n.ts'
 import { fixed } from './weather.ts'
 
 export const unitOptions = {
-  snow: { label: '降雪', options: ['cm', 'in'] },
-  temperature: { label: '温度', options: ['°C', '°F'] },
-  wind: { label: '风速', options: ['km/h', 'mph'] },
-  elevation: { label: '海拔', options: ['m', 'ft'] },
+  snow: { label: t('降雪', 'Snow'), options: ['cm', 'in'] },
+  temperature: { label: t('温度', 'Temperature'), options: ['°C', '°F'] },
+  wind: { label: t('风速', 'Wind'), options: ['km/h', 'mph'] },
+  elevation: { label: t('海拔', 'Elevation'), options: ['m', 'ft'] },
 } as const
 export type Units = { [K in keyof typeof unitOptions]: typeof unitOptions[K]['options'][number] }
 export const metric: Units = { snow: 'cm', temperature: '°C', wind: 'km/h', elevation: 'm' }
@@ -24,4 +25,4 @@ export const saveUnits = (units: Units, storage: () => Storage) => storage().set
 
 export const temp = (n: number | null, units: Units) => fixed(n === null || units.temperature === '°C' ? n : n * 9 / 5 + 32)
 export const wind = (n: number | null, units: Units) => fixed(n === null || units.wind === 'km/h' ? n : n / 1.609344)
-export const elevation = (n: number, units: Units) => Math.round(units.elevation === 'm' ? n : n / 0.3048).toLocaleString('zh-CN')
+export const elevation = (n: number, units: Units) => Math.round(units.elevation === 'm' ? n : n / 0.3048).toLocaleString(en ? 'en-US' : 'zh-CN')

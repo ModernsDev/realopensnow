@@ -1,14 +1,61 @@
 # RealOpenSnow
 
-网页版雪场追踪原型。React、TypeScript、Vite，浏览器查询 Open-Meteo。
+开源的雪场降雪追踪站点：多模型降雪预报加权综合、附近测站雪况、收藏对比、历史预报快照与准确性统计。线上站点：<https://snow.moderns.dev>。
+
+- 805 个雪场（北美 803 个，来自 OpenSkiMap）与自定义 GPS 地点
+- ECMWF、GFS、ICON、NBM 等多模型预报，可调权重，简化/多模型比较两种视图
+- 过去 7 天至未来 14 天时间轴，单位可切换
+- 测站雪况：USDA NRCS SNOTEL、日本气象厅 AMeDAS、CoCoRaHS
+- Google 登录后在设备间同步收藏、地点与设置
+
+技术栈：React 19、TypeScript、Vite；Cloudflare Workers + D1；Better Auth；天气数据来自 [Open-Meteo](https://open-meteo.com/)。
+
+## 本地开发
+
+需要 Node.js 24（见 `.node-version`）。
 
 ```sh
 npm install
-npm run dev
+npm run dev      # 纯前端，浏览器直连 Open-Meteo
 npm test
-npm run build
 npm run lint
+npm run build
 ```
+
+运行含 Worker、D1 和登录的完整站点：在 `.dev.vars` 中写入 `BETTER_AUTH_SECRET` 与 `GOOGLE_CLIENT_SECRET`（见「自行部署」），然后执行
+
+```sh
+npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangler dev --local-upstream localhost:8788 --port 8788
+```
+
+## 自行部署
+
+1. 在 Cloudflare 创建 D1 数据库，把 `wrangler.jsonc` 中的 `account_id`、`database_id` 和 `routes` 域名换成你自己的。
+2. 在 Google Cloud 创建 OAuth 客户端，回调地址为 `https://<你的域名>/api/auth/callback/google`，把 `GOOGLE_CLIENT_ID` 填入 `wrangler.jsonc` 的 `vars`。
+3. 设置 Worker secrets：
+
+   ```sh
+   npx wrangler secret put BETTER_AUTH_SECRET
+   npx wrangler secret put GOOGLE_CLIENT_SECRET
+   ```
+
+4. `npm run deploy`：构建、应用 D1 迁移并部署。`npm run deploy:check` 只做打包校验。
+
+`public/privacy.html` 中的联系邮箱与说明针对官方站点，自行部署时请替换。
+
+## 许可
+
+代码以 [MIT](LICENSE) 许可发布。
+
+数据不在 MIT 许可范围内，按各自来源条款使用：
+
+- 雪场目录：© OpenStreetMap contributors，经 OpenSkiMap，[ODbL](https://www.openstreetmap.org/copyright)
+- 天气与海拔：Open-Meteo，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)；免费 API 仅限非商业用途，商业使用需另购 API 许可
+- 测站：USDA NRCS（公共信息）、日本气象厅（公共数据利用规约 1.0）、CoCoRaHS（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)）
+- 手工目录项摘录自雪场运营方公开资料，未确认开放数据许可，仅保留少量事实并链接来源
+- IANA 时区资料：public domain
+
+## 实现说明
 
 支持 805 个雪场目录项（北美 803 个）、自定义 GPS 地点、个人追踪清单、多模型十四日预报与时段切换、查询点和单位切换、收藏对比与规则雪报。目录与逐字段证据在 `src/catalog.ts`，界面不显示数据来源、许可、API 链接和获取时间。稳定 ID 沿用原型，`chamonix` 仅代表 Les Grands Montets，不代表全谷；Niseko United 的四个雪场、Stowe 的两座山与天气查询点分别记录。
 
@@ -16,9 +63,9 @@ npm run lint
 
 北美目录由 `node scripts/build-north-america.mjs <数据目录>` 从 OpenSkiMap（© OpenStreetMap contributors，ODbL）生成 `src/northAmerica.ts`，收录标记为运营的高山滑雪场，手工目录项优先。查询点取运营缆车的最低、中间与最高端点，无缆车记录的取雪场位置一个点。时区与该点海拔来自 Open-Meteo。证据状态为 `mapped`，未经运营方逐项核对。目录 ID 用于收藏，重新生成时须保持已发布 ID 不变。
 
-自定义地点保存在浏览器 localStorage，海拔与时区由 Open-Meteo 按坐标解析，海拔可手填。自定义地点不上报 Worker，也不支持快照和测站雪况。
+界面支持中文和英文：设置里选过的语言（localStorage `snow-lang`）优先，否则浏览器首选语言为 zh* 时显示中文，其余显示英文。数据内的中文地名和站点名在英文界面按规则换算显示，存储数据不变。
 
-雪场运营方来源未确认开放数据许可，仅摘录少量事实并链接来源；商业发布许可待确认。NRCS 来源按 USDA 公共信息政策署名，IANA 时区资料为 public domain。天气来源：[Open-Meteo](https://open-meteo.com/)，公开站用于非商业评估，天气原始数据按 CC BY 4.0 署名，日值由本站汇总。
+自定义地点保存在浏览器 localStorage，海拔与时区由 Open-Meteo 按坐标解析，海拔可手填。自定义地点不上报 Worker，也不支持快照和测站雪况。
 
 工作台按雪场独立保存当前查询点 ID（仅本页状态），默认选择山脚。390px 下图表和明细在各自区域内滚动，可用键盘操作。请求失败与重试期间保留错误，成功后才清除，取消请求的响应不再写入状态。
 
@@ -36,12 +83,11 @@ npm run lint
 
 Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m）请求预报。仅以最近 30 个当地日期内相邻日测时间明确、整点到整点且恰好相隔 24 小时的直接新雪衡量误差，使用保存的完整小时降雪累计覆盖同一窗口。窗口开始前的快照按获取时间分七个 24 小时提前量档，每 UTC 六小时保留最后一个快照进入统计，每模型每档对同一窗口最多计一次。少于十个窗口标为样本不足。首次同址保存后须等可匹配的观测窗结束并上报，才会出现真实样本。
 
-## 发布
+## 官方站点运维
 
-正式站点为 `https://snow.moderns.dev`。通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
+官方站点 `https://snow.moderns.dev` 通过 GitHub PR 更新，合并到 `main` 后由 Cloudflare Workers Builds 运行 `npm run deploy`。命令构建 Worker、应用 D1 迁移，再部署到自定义域。PR CI 运行测试、lint 和 Wrangler dry-run。`npm run deploy:check` 可在本地执行相同打包校验。排查线上故障时，在 Cloudflare Workers 的部署历史核对 Git 提交和版本；若回滚 Worker，保留已应用的数据库迁移。
 
-账户：Google 登录由 Better Auth 处理。D1 中共享数据为预报缓存、天气配额和预报快照；个人数据按用户存于 `user_settings`（单位、权重、隐藏模型）、`user_favorites`、`user_locations`。cookie 只保存登录会话。未登录时数据只存在本机；首次登录上传本机数据，之后以云端为准。`GOOGLE_CLIENT_ID` 在 `wrangler.jsonc` 的 vars 中（Google Cloud 项目 realopensnow），线上需配置 Worker secrets `BETTER_AUTH_SECRET`、`GOOGLE_CLIENT_SECRET`，Google OAuth 回调地址为 `https://snow.moderns.dev/api/auth/callback/google`。本地用 `.dev.vars` 提供同名变量，`npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangler dev --local-upstream localhost:8788 --port 8788` 运行。
-
+账户：Google 登录由 Better Auth 处理。D1 中共享数据为预报缓存、天气配额和预报快照；个人数据按用户存于 `user_settings`（单位、权重、隐藏模型）、`user_favorites`、`user_locations`。cookie 只保存登录会话。未登录时数据只存在本机；首次登录上传本机数据，之后以云端为准。`GOOGLE_CLIENT_ID` 在 `wrangler.jsonc` 的 vars 中（Google Cloud 项目 realopensnow），线上需配置 Worker secrets `BETTER_AUTH_SECRET`、`GOOGLE_CLIENT_SECRET`，Google OAuth 回调地址为 `https://snow.moderns.dev/api/auth/callback/google`。
 
 公开站由浏览器直接请求 Open-Meteo。免费发布不配置 API 密钥。改为商业用途前需获得对应 API 许可与服务端密钥并重新审核发布条件。
 

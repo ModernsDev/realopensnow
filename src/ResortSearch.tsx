@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { useId, useState, type KeyboardEvent } from 'react'
 import { searchResorts, type Resort } from './catalog'
 
@@ -28,14 +29,14 @@ export function ResortSearch({ resorts, favorites, onSelect }: { resorts: Resort
     }
   }
   return <div className="search">
-    <input role="combobox" aria-label="搜索雪场" placeholder="搜索雪场，回车打开" value={query} autoComplete="off"
+    <input role="combobox" aria-label={t('搜索雪场', 'Search resorts')} placeholder={t('搜索雪场，回车打开', 'Search resorts, Enter to open')} value={query} autoComplete="off"
       aria-expanded={shown} aria-controls={`${id}-list`} aria-autocomplete="list" aria-activedescendant={shown && suggestions.length ? `${id}-${index}` : undefined}
       onChange={e => { setQuery(e.target.value); setActive(0); setOpen(true) }} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onKeyDown={onKeyDown} />
-    {shown && <ul id={`${id}-list`} role="listbox" aria-label="匹配的雪场" className="suggestions">
+    {shown && <ul id={`${id}-list`} role="listbox" aria-label={t('匹配的雪场', 'Matching resorts')} className="suggestions">
       {suggestions.length ? suggestions.map((r, i) => <li key={r.id} id={`${id}-${i}`} role="option" aria-selected={i === index}
         onMouseDown={e => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => choose(r)}>
-        <span><strong>{r.name}</strong><small>{r.region}</small></span>{favorites.includes(r.id) && <span className="saved" aria-label="已收藏">★</span>}
-      </li>) : <li className="none" role="option" aria-selected={false} aria-disabled>没有匹配的雪场</li>}
+        <span><strong>{r.name}</strong><small>{r.region}</small></span>{favorites.includes(r.id) && <span className="saved" aria-label={t('已收藏', 'Favorite')}>★</span>}
+      </li>) : <li className="none" role="option" aria-selected={false} aria-disabled>{t('没有匹配的雪场', 'No matching resorts')}</li>}
     </ul>}
   </div>
 }

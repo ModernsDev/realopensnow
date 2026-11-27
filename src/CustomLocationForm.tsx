@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createLocation, parseCoordinates, resolveLocation, type CustomLocation } from './customLocations'
 
@@ -13,7 +14,7 @@ export function CustomLocationForm({ onAdd, onCancel }: { onAdd: (location: Cust
   async function submit(event: FormEvent) {
     event.preventDefault()
     const coordinates = parseCoordinates(text)
-    if (!coordinates) return setError('坐标无法识别。请按“纬度, 经度”填写，例如 40.588, -111.638。')
+    if (!coordinates) return setError(t('坐标无法识别。请按“纬度, 经度”填写，例如 40.588, -111.638。', 'Coordinates not recognized. Enter “latitude, longitude”, for example 40.588, -111.638.'))
     setBusy(true)
     setError('')
     const current = controller.current = new AbortController()
@@ -23,26 +24,26 @@ export function CustomLocationForm({ onAdd, onCancel }: { onAdd: (location: Cust
       onAdd(createLocation(name, coordinates, elevation ? Math.round(Number(elevation)) : resolved.elevation, resolved.timezone))
     } catch (e) {
       if (current.signal.aborted) return
-      setError(e instanceof Error && e.name === 'TimeoutError' ? '天气服务请求超时，请重试。' : (e as Error).message)
+      setError(e instanceof Error && e.name === 'TimeoutError' ? t('天气服务请求超时，请重试。', 'The weather service timed out. Please try again.') : (e as Error).message)
       setBusy(false)
     }
   }
 
   const locate = () => navigator.geolocation.getCurrentPosition(
     ({ coords }) => { setText(`${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`); setError('') },
-    e => setError(e.code === e.PERMISSION_DENIED ? '浏览器未允许定位，请手动填写坐标。' : '无法取得当前位置，请手动填写坐标。'),
+    e => setError(e.code === e.PERMISSION_DENIED ? t('浏览器未允许定位，请手动填写坐标。', 'Location access was denied. Enter coordinates manually.') : t('无法取得当前位置，请手动填写坐标。', 'Could not get your location. Enter coordinates manually.')),
     { enableHighAccuracy: true, timeout: 15000 },
   )
 
   return <section className="detail custom-form" aria-labelledby="custom-title">
-    <h2 id="custom-title">添加自定义坐标</h2>
-    <p>为雪场外的任意地点获取预报，例如野雪路线或未收录的小山。</p>
+    <h2 id="custom-title">{t('添加自定义坐标', 'Add a custom location')}</h2>
+    <p>{t('为雪场外的任意地点获取预报，例如野雪路线或未收录的小山。', 'Get a forecast for any spot outside a resort, such as a backcountry route or an unlisted hill.')}</p>
     <form onSubmit={submit}>
-      <label>名称<input required maxLength={60} pattern=".*\S.*" value={name} onChange={e => setName(e.target.value)} placeholder="例如 Grizzly Gulch" /></label>
-      <label>GPS 坐标<span className="field-row"><input required value={text} onChange={e => { setText(e.target.value); setError('') }} placeholder="40.588, -111.638" aria-describedby="custom-hint" /><button type="button" onClick={locate}>使用当前位置</button></span><small id="custom-hint">纬度在前，支持十进制与度分秒。可直接粘贴地图里复制的坐标。</small></label>
-      <label>海拔（米，可选）<input type="number" min="-500" max="9000" step="1" value={elevation} onChange={e => setElevation(e.target.value)} /><small>留空时按坐标自动获取地形海拔。</small></label>
+      <label>{t('名称', 'Name')}<input required maxLength={60} pattern=".*\S.*" value={name} onChange={e => setName(e.target.value)} placeholder={t('例如 Grizzly Gulch', 'e.g. Grizzly Gulch')} /></label>
+      <label>{t('GPS 坐标', 'GPS coordinates')}<span className="field-row"><input required value={text} onChange={e => { setText(e.target.value); setError('') }} placeholder="40.588, -111.638" aria-describedby="custom-hint" /><button type="button" onClick={locate}>{t('使用当前位置', 'Use my location')}</button></span><small id="custom-hint">{t('纬度在前，支持十进制与度分秒。可直接粘贴地图里复制的坐标。', 'Latitude first, decimal or degrees-minutes-seconds. You can paste coordinates copied from a map.')}</small></label>
+      <label>{t('海拔（米，可选）', 'Elevation (m, optional)')}<input type="number" min="-500" max="9000" step="1" value={elevation} onChange={e => setElevation(e.target.value)} /><small>{t('留空时按坐标自动获取地形海拔。', 'Leave blank to look up terrain elevation from the coordinates.')}</small></label>
       {error && <p role="alert" className="error">{error}</p>}
-      <div className="field-row"><button className="primary" type="submit" disabled={busy}>{busy ? '正在查询海拔与时区…' : '添加地点'}</button><button type="button" onClick={onCancel}>取消</button></div>
+      <div className="field-row"><button className="primary" type="submit" disabled={busy}>{busy ? t('正在查询海拔与时区…', 'Looking up elevation and time zone…') : t('添加地点', 'Add location')}</button><button type="button" onClick={onCancel}>{t('取消', 'Cancel')}</button></div>
     </form>
   </section>
 }

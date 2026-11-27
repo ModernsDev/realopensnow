@@ -1,3 +1,4 @@
+import { en, t } from './i18n'
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -23,13 +24,24 @@ export const boundaries = {
 const bounds = L.latLngBounds(Object.values(boundaries).flat())
 
 export const snowQuality = {
-  powder: { name: '普通粉', mark: '❄' },
-  cement: { name: '水泥粉', mark: '●' },
-  mix: { name: '冰水混合', mark: '☂' },
+  powder: { name: t('普通粉', 'Powder'), mark: '❄' },
+  cement: { name: t('水泥粉', 'Dense snow'), mark: '●' },
+  mix: { name: t('冰水混合', 'Wet mix'), mark: '☂' },
 }
 export type SnowQuality = keyof typeof snowQuality
 
-const labelNames: Record<string, string> = {
+const labelNames: Record<string, string> = en ? {
+  '太平洋西北沿海山地': 'Pacific NW',
+  '内华达山脉': 'Sierra Nevada',
+  '加拿大哥伦比亚山系': 'Columbias',
+  '加拿大落基山脉': 'Canadian Rockies',
+  '提顿山脉': 'Tetons · JH',
+  '蒙大拿麦迪逊山脉': 'Madison Range',
+  '圣胡安山脉': 'San Juans',
+  '俄勒冈胡德山': 'Mt. Hood',
+  '瓦萨奇山脉': 'Wasatch',
+  '科罗拉多中部高地': 'Central Colorado',
+} : {
   '太平洋西北沿海山地': '太平洋西北',
   '提顿山脉': '提顿山脉 · JH',
   '加拿大哥伦比亚山系': '哥伦比亚山系',
@@ -37,16 +49,29 @@ const labelNames: Record<string, string> = {
   '蒙大拿麦迪逊山脉': '麦迪逊山脉',
   '科罗拉多中部高地': '科罗拉多中部',
 }
+const englishNames: Record<string, string> = {
+  '太平洋西北沿海山地': 'Pacific Northwest Coast Mountains',
+  '内华达山脉': 'Sierra Nevada',
+  '加拿大哥伦比亚山系': 'Columbia Mountains',
+  '加拿大落基山脉': 'Canadian Rockies',
+  '提顿山脉': 'Teton Range',
+  '蒙大拿麦迪逊山脉': 'Madison Range, Montana',
+  '圣胡安山脉': 'San Juan Mountains',
+  '俄勒冈胡德山': 'Mount Hood, Oregon',
+  '瓦萨奇山脉': 'Wasatch Range',
+  '科罗拉多中部高地': 'Central Colorado Rockies',
+}
+export const regionLabel = (name: string) => en ? englishNames[name] : name
 
 const scale = [
   { min: 40, color: '#168446', numberColor: '#126d39', label: '≥40' },
   { min: 15, color: '#8bb83e', numberColor: '#50720f', label: '15–40' },
   { min: 1, color: '#e6b53a', numberColor: '#8a6000', label: '1–15' },
-  { min: 0, color: '#d14842', numberColor: '#b52f2a', label: '不足 1' },
-  { min: -1, color: '#818990', numberColor: '#5c6870', label: '缺测' },
+  { min: 0, color: '#d14842', numberColor: '#b52f2a', label: t('不足 1', '< 1') },
+  { min: -1, color: '#818990', numberColor: '#5c6870', label: t('缺测', 'No data') },
 ]
 
-const scaleLabel = (min: number, units: Units) => { const i = scale.findIndex(s => s.min === min); const v = (n: number) => units.snow === 'cm' ? String(n) : snow(n, 'in'); return min === 40 ? `≥${v(40)}` : min > 0 ? `${v(min)}–${v(scale[i - 1].min)}` : min === 0 ? `不足 ${v(1)}` : scale[i].label }
+const scaleLabel = (min: number, units: Units) => { const i = scale.findIndex(s => s.min === min); const v = (n: number) => units.snow === 'cm' ? String(n) : snow(n, 'in'); return min === 40 ? `≥${v(40)}` : min > 0 ? `${v(min)}–${v(scale[i - 1].min)}` : min === 0 ? t(`不足 ${v(1)}`, `< ${v(1)}`) : scale[i].label }
 export function RegionMap({ units, rows, selected, onSelect }: { units: Units; rows: MapRegion[]; selected: string | null; onSelect: (name: string | null) => void }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -88,7 +113,7 @@ export function RegionMap({ units, rows, selected, onSelect }: { units: Units; r
           icon.textContent = snowQuality[quality].mark
           status.append(icon)
         }
-        status.title = [...qualities].map(q => snowQuality[q].name).join('、')
+        status.title = [...qualities].map(q => snowQuality[q].name).join(t('、', ', '))
         caption.append(status)
       }
       const anchor = shape.getCenter()
@@ -138,8 +163,8 @@ export function RegionMap({ units, rows, selected, onSelect }: { units: Units; r
   useEffect(() => {
     if (boundary) map.current!.fitBounds(L.latLngBounds(boundary).pad(0.18))
   }, [boundary])
-  return <div className="atlas"><div className="atlas-map" ref={container} aria-label="北美西部山地降雪地图" />
-    <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>西部全景</button>
-    <div className="atlas-caption"><div><strong>{active?.name ?? '累计新雪'}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + snow(active.totals[i], units.snow) + ' ' + units.snow + '，' + active.conditions[i].text).join(' · ') : '两个代表点中的较低值'}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label="累计新雪"><strong>累计新雪（{units.snow}）</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{scaleLabel(s.min, units)}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label="雪质倾向"><strong>雪质倾向</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
+  return <div className="atlas"><div className="atlas-map" ref={container} aria-label={t('北美西部山地降雪地图', 'Western North America mountain snowfall map')} />
+    <button className="atlas-reset" onClick={() => { onSelect(null); map.current!.fitBounds(bounds.pad(0.12)) }}>{t('西部全景', 'Show all')}</button>
+    <div className="atlas-caption"><div><strong>{active ? regionLabel(active.name) : t('累计新雪', 'Total new snow')}</strong><small>{active ? active.points.split(' / ').map((p,i) => p + ' ' + snow(active.totals[i], units.snow) + ' ' + units.snow + t('，', ', ') + active.conditions[i].text).join(' · ') : t('两个代表点中的较低值', 'Lower of the two sample points')}</small></div><div className="atlas-scale atlas-snow" role="group" aria-label={t('累计新雪', 'Total new snow')}><strong>{t('累计新雪', 'Total new snow')} ({units.snow})</strong>{scale.slice().reverse().map(s => <span key={s.min}><i style={{background:s.color}} />{scaleLabel(s.min, units)}</span>)}</div><div className="atlas-scale atlas-quality" role="group" aria-label={t('雪质倾向', 'Snow quality')}><strong>{t('雪质倾向', 'Snow quality')}</strong>{Object.entries(snowQuality).map(([kind, q]) => <span key={kind}><i className={`snow-quality-icon ${kind}`} aria-hidden="true">{q.mark}</i>{q.name}</span>)}</div></div>
   </div>
 }

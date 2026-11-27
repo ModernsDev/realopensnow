@@ -7,8 +7,9 @@ const noCache = { 'cache-control': 'no-store' }
 const pageSize = 10
 const sixHours = 6 * 3_600_000
 const accuracyPeriod = 38 * 24 * 3_600_000
+const fail = (en, zh, english, status) => Response.json({ error: en ? english : zh }, { status, headers: noCache })
 
-export async function captureSnapshot(env, pointId) {
+export async function captureSnapshot(env, pointId, en = false) {
   const resort = resorts.find(r => r.points.some(point => point.id === pointId))
   const point = resort.points.find(p => p.id === pointId)
   const { lat, lon } = point.coordinates.value
@@ -17,7 +18,7 @@ export async function captureSnapshot(env, pointId) {
   let batch, hourly
   try {
     const upstream = await fetch(source, { redirect: 'manual', signal: AbortSignal.timeout(12000) })
-    if (upstream.status === 429) return Response.json({ error: 'Open-Meteo 已限流，未保存快照。' }, { status: 429, headers: noCache })
+    if (upstream.status === 429) return fail(en, 'Open-Meteo 已限流，未保存快照。', 'Open-Meteo is rate limiting requests; no snapshot was saved.', 429)
     if (!upstream.ok) throw new Error(`Open-Meteo HTTP ${upstream.status}`)
     const data = await upstream.json()
     batch = {
@@ -28,7 +29,7 @@ export async function captureSnapshot(env, pointId) {
     hourly = pointId === waterburyPoint.id ? hourlySnow(data) : null
   } catch (error) {
     console.warn('forecast_snapshot_upstream', pointId, error.message)
-    return Response.json({ error: '上游预报暂不可用，未保存快照。' }, { status: 502, headers: noCache })
+    return fail(en, '上游预报暂不可用，未保存快照。', 'The upstream forecast is unavailable; no snapshot was saved.', 502)
   }
 
   try {
@@ -37,15 +38,15 @@ export async function captureSnapshot(env, pointId) {
     return Response.json({ id, data: batch }, { status: 201, headers: noCache })
   } catch (error) {
     console.error('forecast_snapshot_write', pointId, error.message)
-    return Response.json({ error: '快照保存失败，请重试。' }, { status: 503, headers: noCache })
+    return fail(en, '快照保存失败，请重试。', 'Could not save the snapshot. Please try again.', 503)
   }
 }
 
 const timeOrder = 'ORDER BY fetched_at DESC, id DESC'
-export async function snapshotHistory(env, point, params) {
+export async function snapshotHistory(env, point, params, en = false) {
   const before = params.get('before')
   if (before !== null && (!/^\d+$/.test(before) || !Number.isSafeInteger(Number(before)) || Number(before) < 1)) {
-    return Response.json({ error: '无效的历史游标。' }, { status: 400, headers: noCache })
+    return fail(en, '无效的历史游标。', 'Invalid history cursor.', 400)
   }
   try {
     const result = before === null
@@ -60,12 +61,12 @@ export async function snapshotHistory(env, point, params) {
     }, { headers: noCache })
   } catch (error) {
     console.error('forecast_snapshot_read', point, error.message)
-    return Response.json({ error: '暂时无法读取历史快照。' }, { status: 503, headers: noCache })
+    return fail(en, '暂时无法读取历史快照。', 'Snapshots cannot be read right now.', 503)
   }
 }
 
-export async function stationAccuracy(env, point) {
-  if (point !== waterburyPoint.id) return Response.json({ error: '此查询点没有同址直接新雪观测。' }, { status: 404, headers: noCache })
+export async function stationAccuracy(env, point, en = false) {
+  if (point !== waterburyPoint.id) return fail(en, '此查询点没有同址直接新雪观测。', 'This point has no co-located new snow observations.', 404)
   const now = Date.now()
   try {
     const [{ results }, reports] = await Promise.all([
@@ -83,6 +84,6 @@ export async function stationAccuracy(env, point) {
     return Response.json(summarizeAccuracy(snapshots, reports, now), { headers: noCache })
   } catch (error) {
     console.error('forecast_accuracy_read', point, error.message)
-    return Response.json({ error: '暂时无法核对历史快照与 CoCoRaHS 观测。' }, { status: 503, headers: noCache })
+    return fail(en, '暂时无法核对历史快照与 CoCoRaHS 观测。', 'Snapshots cannot be checked against CoCoRaHS observations right now.', 503)
   }
 }

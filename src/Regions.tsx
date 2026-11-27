@@ -2,7 +2,8 @@ import { memo, useEffect, useState } from 'react'
 
 import { PeriodPicker } from './PeriodPicker'
 import { defaultPeriod, forecastPeriods } from './weather'
-import { RegionMap, boundaries, snowQuality, type SnowQuality } from './RegionMap'
+import { RegionMap, boundaries, regionLabel, snowQuality, type SnowQuality } from './RegionMap'
+import { t } from './i18n'
 import { snow } from './weather'
 import { temp, type Units } from './units'
 
@@ -23,18 +24,18 @@ const regions = [
 type Sample = { daily_units: Record<string, string>; daily: { time: string[]; snowfall_sum: (number | null)[]; rain_sum?: (number | null)[]; temperature_2m_min?: (number | null)[]; temperature_2m_max?: (number | null)[] } }
 
 function conditions(sample: Sample | undefined, start: number, end: number, units: Units) {
-  if (!sample) return { text: '等待预报', qualities: [] }
+  if (!sample) return { text: t('等待预报', 'Waiting for forecast'), qualities: [] }
   const lows = sample.daily.temperature_2m_min?.slice(start, end)
   const highs = sample.daily.temperature_2m_max?.slice(start, end)
   const complete = (v: (number | null)[] | undefined): v is number[] =>
     v?.length === end - start && v.every(n => typeof n === 'number' && Number.isFinite(n))
   if (sample.daily_units.temperature_2m_min !== '°C' || sample.daily_units.temperature_2m_max !== '°C' ||
-    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: '气温缺测', qualities: [] }
-  const range = temp(Math.min(...lows), units) + '～' + temp(Math.max(...highs), units) + ' ' + units.temperature
+    !complete(lows) || !complete(highs) || lows.some((v,i) => v > highs[i])) return { text: t('气温缺测', 'No temperature data'), qualities: [] }
+  const range = temp(Math.min(...lows), units) + t('～', ' to ') + temp(Math.max(...highs), units) + ' ' + units.temperature
   const snowfall = sample.daily.snowfall_sum.slice(start, end)
-  if (!complete(snowfall) || snowfall.some(n => n < 0)) return { text: range + ' · 新雪缺测', qualities: [] }
+  if (!complete(snowfall) || snowfall.some(n => n < 0)) return { text: range + t(' · 新雪缺测', ' · no snowfall data'), qualities: [] }
   const first = snowfall.findIndex(n => n > 0)
-  if (first < 0) return { text: range + ' · 无新增降雪', qualities: [] }
+  if (first < 0) return { text: range + t(' · 无新增降雪', ' · no new snow'), qualities: [] }
   const warmSnowDay = snowfall.some((n,i) => n > 0 && highs[i] > 0)
   const thaw = highs.slice(first + 1).some(n => n > 0)
   const rain = sample.daily.rain_sum?.slice(start, end)
@@ -43,8 +44,8 @@ function conditions(sample: Sample | undefined, start: number, end: number, unit
     if (sample.daily_units.rain_sum === 'mm' && (rain?.[i] ?? 0) > 0) return ['mix']
     return [highs[i] <= -4 ? 'powder' : 'cement']
   }))]
-  return { qualities, text: range + (warmSnowDay ? ' · 降雪日有湿化风险' : '') +
-    (thaw ? ' · 后续有回暖风险' : '') + ' · ' + qualities.map(q => snowQuality[q].name).join(' / ') }
+  return { qualities, text: range + (warmSnowDay ? t(' · 降雪日有湿化风险', ' · snow may turn wet on snowy days') : '') +
+    (thaw ? t(' · 后续有回暖风险', ' · warm-up risk afterwards') : '') + ' · ' + qualities.map(q => snowQuality[q].name).join(' / ') }
 }
 
 export const Regions = memo(function Regions({ units }: { units: Units }) {
@@ -63,13 +64,13 @@ export const Regions = memo(function Regions({ units }: { units: Units }) {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(25000)])
     fetch('https://api.open-meteo.com/v1/forecast?' + query, { signal, cache: 'no-store' })
       .then(async response => {
-        if (!response.ok) throw new Error('预报服务返回 ' + response.status)
+        if (!response.ok) throw new Error(t('预报服务返回 ', 'Forecast service returned ') + response.status)
         const data: Sample[] = await response.json()
         const today = new Date().toISOString().slice(0, 10)
         if (!Array.isArray(data) || data.length !== regions.length * 2 || data.some(s =>
           s.daily_units?.snowfall_sum !== 'cm' || s.daily?.time?.length !== 14 || s.daily.time[0] !== today ||
           s.daily.snowfall_sum?.length !== 14 || s.daily.time.join() !== data[0].daily.time.join()
-        )) throw new Error('预报日期、单位或采样点不完整')
+        )) throw new Error(t('预报日期、单位或采样点不完整', 'Forecast dates, units or sample points are incomplete'))
         if (!controller.signal.aborted) setSamples(data)
       }).catch(e => { if (!controller.signal.aborted) setError(e.message) })
     return () => controller.abort()
@@ -91,9 +92,9 @@ export const Regions = memo(function Regions({ units }: { units: Units }) {
     </small>}
     </div>
     <RegionMap units={units} rows={rows} selected={selected} onSelect={setSelected} />
-    {error ? <p role="alert">{error}</p> : !samples ? <p role="status">正在获取北美山地预报…</p> : <>
-      <h2>区域对比</h2>
-      <div className="table-scroll" tabIndex={0} aria-label="区域对比，可横向滚动"><table style={{minWidth:680}}><thead><tr><th>山地气候区</th><th>代表点</th><th>各点新雪（{units.snow}）</th><th>气温与雪质趋势</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{r.name}</button></th><td>{r.points}</td><td>{r.totals.map(v => v === null ? '缺测' : snow(v, units.snow)).join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}：{c.text}</div>)}</td></tr>)}</tbody></table></div>
+    {error ? <p role="alert">{error}</p> : !samples ? <p role="status">{t('正在获取北美山地预报…', 'Loading mountain forecasts…')}</p> : <>
+      <h2>{t('区域对比', 'Region comparison')}</h2>
+      <div className="table-scroll" tabIndex={0} aria-label={t('区域对比，可横向滚动', 'Region comparison, scrolls horizontally')}><table style={{minWidth:680}}><thead><tr><th>{t('山地气候区', 'Mountain region')}</th><th>{t('代表点', 'Sample points')}</th><th>{t('各点新雪', 'New snow per point')} ({units.snow})</th><th>{t('气温与雪质趋势', 'Temperature and snow quality')}</th></tr></thead><tbody>{rows.map(r => <tr key={r.name}><th><button aria-pressed={selected === r.name} onClick={() => setSelected(r.name)}>{regionLabel(r.name)}</button></th><td>{r.points}</td><td>{r.totals.map(v => v === null ? t('缺测', 'n/a') : snow(v, units.snow)).join(' / ')}</td><td>{r.conditions.map((c,i) => <div key={i}>{r.points.split(' / ')[i]}{t('：', ': ')}{c.text}</div>)}</td></tr>)}</tbody></table></div>
       </>}
     
   </section>

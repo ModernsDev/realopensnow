@@ -120,7 +120,7 @@ function App() {
     const { data, error } = results[k] ?? {}
     if (pending(k) || !data || forecastExpired(data, now)) return { error }
     const prefs = { weights: weightState.weights, hidden: weightState.hidden }
-    const view = { ...data, ...prefs, past: { ...data.past, ...prefs }, extended: { ...data.extended, ...prefs } }
+    const view = { ...data, ...prefs, past: { ...data.past, ...prefs }, extended: { ...data.extended, ...prefs }, periods: { ...data.periods, ...prefs } }
     return { data: { ...view, report: dailyReport(view, byId.get(data.query.resortId)!) }, error }
   }
   const { data, error } = active(key)
@@ -186,6 +186,7 @@ function App() {
       model={comparisonModel}
       setModel={setComparisonModel}
       units={units}
+      now={now}
     /> : <div>
       {tracked.length ? <div className="controls">
         <ModeSwitch mode={mode} setMode={setMode} />

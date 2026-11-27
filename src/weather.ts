@@ -16,7 +16,8 @@ export const models = [
   { id: 'icon_d2', name: 'ICON-D2', color: '#a8501a', weight: 10 },
 ]
 export const visibleModels = (f: Pick<DailySeries, 'hidden'>) => models.filter(m => !f.hidden?.includes(m.id))
-export const availableModels = (f: DailySeries, field?: string) => visibleModels(f).filter(m => (field ? [field] : ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
+const modelStatusFields = ['snowfall_sum', 'temperature_2m_min', 'temperature_2m_max', 'wind_gusts_10m_max']
+export const availableModels = (f: DailySeries, field?: string) => visibleModels(f).filter(m => (field ? [field] : modelStatusFields).some(key => f.daily[`${key}_${m.id}`]?.some(n => n !== null)))
 export const weighted = { id: 'weighted', name: '加权综合', color: '#1559b7' }
 export const modes = { simple: '简化', multi: '多模型比较' } as const
 export type Mode = keyof typeof modes
@@ -87,7 +88,7 @@ export function forecastDates(requested: string, timezone: string, days = 7) {
 }
 function statuses(daily: Forecast['daily']): Forecast['modelStatus'] {
   return Object.fromEntries(models.map(({ id }) => {
-    const fields = Object.entries(daily).filter(([key]) => key.endsWith(`_${id}`)).flatMap(([, values]) => values)
+    const fields = modelStatusFields.flatMap(field => daily[`${field}_${id}`] ?? [])
     return [id, fields.every(v => v !== null) ? '数据完整' : fields.some(v => v !== null) ? '部分缺失' : '不可用']
   }))
 }
@@ -109,31 +110,50 @@ export function aggregateHourly(data: unknown, dates: string[], timezone: string
   const times = raw?.hourly?.time
   if (raw?.timezone !== timezone || raw.hourly_units?.time !== 'unixtime' || !Array.isArray(times) || !times.length || times.some((t, i) => !Number.isSafeInteger(t) || t % 3600 !== 0 || (i > 0 && t - times[i - 1] !== 3600))) throw new Error('天气服务的时区或小时时间轴无效')
   const daily: Forecast['daily'] = {}
-  const labelsByShift = [0, 1].map(shift => times.map(t => localDate(t * 1000 - shift, timezone)))
-  for (const model of models) {
-    for (const [field, output, unit, operation] of [
-      ['snowfall', 'snowfall_sum', 'cm', 'sum'],
-      ['temperature_2m', 'temperature_2m_min', '°C', 'min'],
-      ['temperature_2m', 'temperature_2m_max', '°C', 'max'],
-      ['wind_gusts_10m', 'wind_gusts_10m_max', 'km/h', 'max'],
-    ]) {
-      const shift = field === 'temperature_2m' ? 0 : 1
-      const labels = labelsByShift[shift]
-      const key = `${field}_${model.id}`
+  const indicesByShift = [0, 1].map(shift => {
+    const labels = times.map(t => localDate(t * 1000 - shift, timezone))
+    return dates.map(date => {
+      const indices = labels.flatMap((label, i) => label === date ? [i] : [])
+      if (!indices.length || localDate((times[indices[0]] - 3600) * 1000 - shift, timezone) === date || localDate((times[indices.at(-1)!] + 3600) * 1000 - shift, timezone) === date) return []
+      return indices
+    })
+  })
+  function aggregate(values: (number | null)[] | null, shift: 0 | 1, operation: 'sum' | 'min' | 'max') {
+    return indicesByShift[shift].map(indices => {
+      if (!indices.length || !values) return null
+      const selected = indices.map(i => values[i] ?? null)
+      if (!selected.every(n => n !== null)) return null
+      return operation === 'sum' ? selected.reduce((a, b) => a + b, 0) : operation === 'min' ? Math.min(...selected) : Math.max(...selected)
+    })
+  }
+  for (const { id } of models) {
+    const read = (field: string, unit: string, allowNegative = false): (number | null)[] | null => {
+      const key = `${field}_${id}`
       const values = raw.hourly![key]
-      daily[`${output}_${model.id}`] = dates.map(date => {
-        const indices = labels.flatMap((label, i) => label === date ? [i] : [])
-        if (!indices.length || localDate((times[indices[0]] - 3600) * 1000 - shift, timezone) === date || localDate((times[indices.at(-1)!] + 3600) * 1000 - shift, timezone) === date || !Array.isArray(values) || values.length !== times.length || raw.hourly_units![key] !== unit) return null
-        const selected = indices.map(i => values[i])
-        if (selected.some(v => typeof v !== 'number' || !Number.isFinite(v) || (field !== 'temperature_2m' && v < 0))) return null
-        return operation === 'sum' ? selected.reduce((a, b) => a + b, 0) : operation === 'min' ? Math.min(...selected) : Math.max(...selected)
-      })
+      if (!Array.isArray(values) || values.length !== times.length || raw.hourly_units![key] !== unit) return null
+      return values.map(n => typeof n === 'number' && Number.isFinite(n) && (allowNegative || n >= 0) ? n : null)
     }
+    const snowfall = read('snowfall', 'cm')
+    const temperature = read('temperature_2m', '°C', true)
+    const freezing = read('freezing_level_height', 'm', true)
+    const wetSnowfall = snowfall && temperature && snowfall.map((snow, i) => {
+      const temp = temperature[i]
+      if (snow === null || temp == null) return null
+      return temp > -1 ? snow : 0
+    })
+    daily[`snowfall_sum_${id}`] = aggregate(snowfall, 1, 'sum')
+    daily[`temperature_2m_min_${id}`] = aggregate(temperature, 0, 'min')
+    daily[`temperature_2m_max_${id}`] = aggregate(temperature, 0, 'max')
+    daily[`wind_gusts_10m_max_${id}`] = aggregate(read('wind_gusts_10m', 'km/h'), 1, 'max')
+    daily[`rain_sum_${id}`] = aggregate(read('rain', 'mm'), 1, 'sum')
+    daily[`wet_snowfall_sum_${id}`] = aggregate(wetSnowfall, 1, 'sum')
+    daily[`freezing_level_height_min_${id}`] = aggregate(freezing, 0, 'min')
+    daily[`freezing_level_height_max_${id}`] = aggregate(freezing, 0, 'max')
   }
   return { daily, modelStatus: statuses(daily) }
 }
 export function forecastSource(lat: number, lon: number, elevation: number, timezone: string, days = 7, pastDays = 1) {
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: String(days + 1), past_days: String(pastDays), models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(elevation), timezone, forecast_days: String(days + 1), past_days: String(pastDays), models: models.map(m => m.id).join(','), hourly: 'snowfall,temperature_2m,wind_gusts_10m,rain,freezing_level_height', timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' })
   return `https://api.open-meteo.com/v1/forecast?${query}`
 }
 

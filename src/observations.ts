@@ -1,3 +1,4 @@
+import { t } from './i18n.ts'
 const hour = 60 * 60 * 1000
 const stationOffset = '-08:00'
 const snotelNoiseInches = 2
@@ -46,7 +47,7 @@ function reading(value: unknown, observedAt: number, cmPerUnit: number): Reading
 }
 
 export function awdbReadings(payload: unknown, triplet: string, now: number): Readings {
-  if (!Array.isArray(payload)) throw new Error('AWDB 返回格式异常')
+  if (!Array.isArray(payload)) throw new Error(t('AWDB 返回格式异常', 'AWDB returned an unexpected format'))
   const station = (payload as { stationTriplet: string; data: AwdbSeries[] }[]).find(item => item?.stationTriplet === triplet)
   const data = station?.data.find(({ stationElement: e }) =>
     e.elementCode === 'SNWD' && e.ordinal === 1 && e.durationName === 'HOURLY' && e.storedUnitCode === 'in' && !e.derivedData)
@@ -64,7 +65,7 @@ export function awdbReadings(payload: unknown, triplet: string, now: number): Re
 }
 
 export function amedasReadings(payload: unknown, now: number): Readings {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('AMeDAS 返回格式异常')
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error(t('AMeDAS 返回格式异常', 'AMeDAS returned an unexpected format'))
   const rows = Object.entries(payload).filter(([key]) => /^\d{10}0000$/.test(key))
   const times = rows.map(([key]) => Date.parse(key.replace(/^(\d{4})(\d\d)(\d\d)(\d\d)0000$/, '$1-$2-$3T$4:00:00') + japanOffset))
   const index = recentIndex(times, now)
@@ -90,7 +91,7 @@ export function cocorahsReadings(payload: DailyReading | null, now: number): Rea
 
   const wallTime = payload.obsDateTime?.slice(0, 19)
   const tentative = Date.parse(wallTime + 'Z')
-  if (!Number.isFinite(tentative)) throw new Error('CoCoRaHS 时间格式异常')
+  if (!Number.isFinite(tentative)) throw new Error(t('CoCoRaHS 时间格式异常', 'CoCoRaHS returned an unexpected time format'))
   const offsetAt = (time: number) => vermontOffset.formatToParts(time).find(part => part.type === 'timeZoneName')!.value.slice(3)
   const observedAt = Date.parse(wallTime + offsetAt(Date.parse(wallTime + offsetAt(tentative))))
   if (observedAt > now) return { newSnow: null, depth: null }
@@ -105,7 +106,7 @@ export function cocorahsReadings(payload: DailyReading | null, now: number): Rea
 
 async function response(url: string, signal: AbortSignal) {
   const result = await fetch(url, { signal })
-  if (!result.ok) throw new Error(`数据源返回 HTTP ${result.status}`)
+  if (!result.ok) throw new Error(t(`数据源返回 HTTP ${result.status}`, `Data source returned HTTP ${result.status}`))
   return result
 }
 
@@ -125,7 +126,7 @@ export async function getObservations(station: Station, signal: AbortSignal, now
     return cocorahsReadings(await result.json(), now)
   }
   const latest = (await (await response(`${amedas}/latest_time.txt`, requestSignal)).text()).trim()
-  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+09:00$/.test(latest)) throw new Error('AMeDAS 时间格式异常')
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+09:00$/.test(latest)) throw new Error(t('AMeDAS 时间格式异常', 'AMeDAS returned an unexpected time format'))
   const day = latest.slice(0, 10).replaceAll('-', '')
   const block = String(Math.floor(Number(latest.slice(11, 13)) / 3) * 3).padStart(2, '0')
   const result = await response(`${amedas}/point/16217/${day}_${block}.json`, requestSignal)

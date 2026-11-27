@@ -1,5 +1,6 @@
 import { elevation, type Units } from './units.ts'
 import { northAmerica, type NorthAmericaResort } from './northAmerica.ts'
+import { en, pointName, regionName, t } from './i18n.ts'
 
 export const verifiedOn = '2026-11-17'
 export type Source = { title: string; url: string; checkedOn: string; license: string; licenseUrl?: string }
@@ -129,6 +130,11 @@ export const resorts: Resort[] = [
   { id: 'stowe', country: 'US', name: 'Stowe Mountain Resort', aliases: ['Stowe', '斯托'], region: 'Vermont · 美国', identitySources: ['stowe'], areas: [{ id: 'stowe-mansfield', name: 'Mount Mansfield' }, { id: 'stowe-spruce', name: 'Spruce Peak' }], areaNote: '两座山分开记录。当前三档预报覆盖 Mount Mansfield。', coordinates: locationPending('stowe'), timezone: 'America/New_York', timezoneSources: ['timezone', 'timezoneUS'], terrain: '官方自然山顶 1,340 m（4,395 ft），最高滑雪高度 1,105 m（3,625 ft）。Gondola 上站的预报值取自该地图坐标的地面高程。', points: [point('stowe-base', 'base', 'Mount Mansfield · Toll House 下站', 'stowe-mansfield', 'stoweMap', { lat: 44.5107423, lon: -72.7673803 }, 204614511, 399.805, 'usgs'), point('stowe-mid', 'mid', 'Mount Mansfield · Toll House 上站', 'stowe-mansfield', 'stoweMap', { lat: 44.5190458, lon: -72.7888755 }, 592472361, 672.531, 'usgs'), point('stowe-top', 'top', 'Mount Mansfield · Gondola 上站', 'stowe-mansfield', 'stoweMap', { lat: 44.5376287, lon: -72.8142127 }, 204614449, 1115.723, 'usgs'), waterburyPoint], updatedOn: verifiedOn },
   ...northAmerica.map(mappedResort),
 ]
+if (en) for (const r of resorts) {
+  r.aliases.push(r.region)
+  r.region = regionName(r.region)
+  for (const p of r.points) p.name = pointName(p.name)
+}
 const normalize = (text: string) => text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
 const searchIndex = new WeakMap<Resort, { name: string; text: string }>()
 export function searchResorts(query: string, list = resorts) {
@@ -147,9 +153,9 @@ export function searchResorts(query: string, list = resorts) {
   return primary.concat(others)
 }
 export function queryBlockReason(resort: Resort, query: QueryPoint | undefined) {
-  if (!query || !resort.points.includes(query)) return '查询点不存在，请重新选择。'
-  if (query.coordinates.status === 'pending' || query.coordinates.value === null) return '查询点坐标待核实，暂不请求预报或生成雪报。'
-  if (query.elevation.status === 'pending' || query.elevation.value === null) return '查询点海拔待核实，暂不请求预报或生成雪报。'
+  if (!query || !resort.points.includes(query)) return t('查询点不存在，请重新选择。', 'This query point does not exist. Please choose another.')
+  if (query.coordinates.status === 'pending' || query.coordinates.value === null) return t('查询点坐标待核实，暂不请求预报或生成雪报。', 'Coordinates for this point are unverified; no forecast is requested.')
+  if (query.elevation.status === 'pending' || query.elevation.value === null) return t('查询点海拔待核实，暂不请求预报或生成雪报。', 'Elevation for this point is unverified; no forecast is requested.')
   return null
 }
-export const elevationLabel = (point: QueryPoint, units: Units) => point.elevation.value === null ? '海拔待核实' : `${elevation(point.elevation.value, units)} ${units.elevation}${point.elevation.status === 'pending' ? '（待核实）' : ''}`
+export const elevationLabel = (point: QueryPoint, units: Units) => point.elevation.value === null ? t('海拔待核实', 'Elevation unverified') : `${elevation(point.elevation.value, units)} ${units.elevation}${point.elevation.status === 'pending' ? t('（待核实）', ' (unverified)') : ''}`

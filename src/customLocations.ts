@@ -1,3 +1,4 @@
+import { t } from './i18n.ts'
 import { mapped, type Coordinates, type Resort } from './catalog.ts'
 
 export const customLocationsKey = 'snow-custom-locations'
@@ -51,16 +52,16 @@ export async function resolveLocation(c: Coordinates, signal?: AbortSignal): Pro
   const params = new URLSearchParams({ latitude: String(c.lat), longitude: String(c.lon), timezone: 'auto', forecast_days: '1', daily: 'snowfall_sum' })
   const timeout = AbortSignal.timeout(20000)
   const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
-  if (response.status === 429) throw new Error('天气服务已限流（429），请稍后重试。')
-  if (!response.ok) throw new Error(`天气服务请求失败（${response.status}）`)
+  if (response.status === 429) throw new Error(t('天气服务已限流（429），请稍后重试。', 'The weather service is rate limiting requests (429). Please try again later.'))
+  if (!response.ok) throw new Error(t(`天气服务请求失败（${response.status}）`, `Weather service request failed (${response.status})`))
   let data
   try {
     data = await response.json()
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error
-    throw new Error('天气服务返回的地点数据无效')
+    throw new Error(t('天气服务返回的地点数据无效', 'The weather service returned invalid location data'))
   }
-  if (!Number.isFinite(data?.elevation) || data.elevation < -500 || data.elevation > 9000 || !validTimezone(data.timezone)) throw new Error('天气服务返回的海拔或时区无效')
+  if (!Number.isFinite(data?.elevation) || data.elevation < -500 || data.elevation > 9000 || !validTimezone(data.timezone)) throw new Error(t('天气服务返回的海拔或时区无效', 'The weather service returned an invalid elevation or time zone'))
   return { elevation: Math.round(data.elevation), timezone: data.timezone }
 }
 
@@ -71,10 +72,10 @@ export function createLocation(name: string, c: Coordinates, elevation: number, 
 export function customResort(l: CustomLocation): Resort {
   const coordinates = mapped({ lat: l.lat, lon: l.lon }, 'userInput')
   return {
-    id: l.id, name: l.name, custom: true, country: '', region: '自定义地点', aliases: [],
+    id: l.id, name: l.name, custom: true, country: '', region: t('自定义地点', 'Custom location'), aliases: [],
     identitySources: ['userInput'], areas: [{ id: l.id, name: l.name }], areaNote: '', coordinates,
     timezone: l.timezone, timezoneSources: ['openmeteoGeo'], terrain: '', updatedOn: l.createdOn,
-    points: [{ id: l.id + '-point', kind: 'custom', name: '自定义坐标', areaId: l.id, coordinates,
+    points: [{ id: l.id + '-point', kind: 'custom', name: t('自定义坐标', 'Custom coordinates'), areaId: l.id, coordinates,
       elevation: mapped(l.elevation, 'userInput', 'openmeteoGeo'), note: '坐标由用户提供，海拔由用户填写或取自 Open-Meteo 地形数据。' }],
   }
 }
@@ -95,9 +96,9 @@ export function readCustomLocations(storage: StorageAccess): { locations: Custom
     if (!Array.isArray(parsed)) throw new Error('记录应为数组')
     const ids = new Set<string>()
     const locations = parsed.filter(l => validLocation(l) && !ids.has(l.id) && ids.add(l.id))
-    return { locations, error: locations.length === parsed.length ? null : '本机自定义地点含无效或重复记录，已整理。请保存以更新本机记录。' }
+    return { locations, error: locations.length === parsed.length ? null : t('本机自定义地点含无效或重复记录，已整理。请保存以更新本机记录。', 'Invalid or duplicate custom locations on this device were cleaned up. Save to update the stored list.') }
   } catch {
-    return { locations: [], error: '无法读取本机自定义地点（存储不可用或记录损坏）。' }
+    return { locations: [], error: t('无法读取本机自定义地点（存储不可用或记录损坏）。', 'Could not read custom locations on this device (storage unavailable or data corrupted).') }
   }
 }
 
@@ -106,6 +107,6 @@ export function saveCustomLocations(locations: CustomLocation[], storage: Storag
     storage().setItem(customLocationsKey, JSON.stringify(locations))
     return null
   } catch {
-    return '无法保存本机自定义地点；当前更改仅在本页有效，刷新后可能丢失。请允许网站存储后重试保存。'
+    return t('无法保存本机自定义地点；当前更改仅在本页有效，刷新后可能丢失。请允许网站存储后重试保存。', 'Could not save custom locations on this device; changes apply to this page only and may be lost on reload. Allow site storage and retry.')
   }
 }

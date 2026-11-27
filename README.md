@@ -16,6 +16,8 @@ npm run lint
 
 北美目录由 `node scripts/build-north-america.mjs <数据目录>` 从 OpenSkiMap（© OpenStreetMap contributors，ODbL）生成 `src/northAmerica.ts`，收录标记为运营的高山滑雪场，手工目录项优先。查询点取运营缆车的最低、中间与最高端点，无缆车记录的取雪场位置一个点。时区与该点海拔来自 Open-Meteo。证据状态为 `mapped`，未经运营方逐项核对。目录 ID 用于收藏，重新生成时须保持已发布 ID 不变。
 
+界面支持中文和英文：设置里选过的语言（localStorage `snow-lang`）优先，否则浏览器首选语言为 zh* 时显示中文，其余显示英文。数据内的中文地名和站点名在英文界面按规则换算显示，存储数据不变。
+
 自定义地点保存在浏览器 localStorage，海拔与时区由 Open-Meteo 按坐标解析，海拔可手填。自定义地点不上报 Worker，也不支持快照和测站雪况。
 
 雪场运营方来源未确认开放数据许可，仅摘录少量事实并链接来源；商业发布许可待确认。NRCS 来源按 USDA 公共信息政策署名，IANA 时区资料为 public domain。天气来源：[Open-Meteo](https://open-meteo.com/)，公开站用于非商业评估，天气原始数据按 CC BY 4.0 署名，日值由本站汇总。

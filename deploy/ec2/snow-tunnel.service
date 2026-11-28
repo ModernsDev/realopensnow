@@ -1,0 +1,15 @@
+[Unit]
+Description=RealOpenSnow Cloudflare Tunnel
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+EnvironmentFile=/etc/realopensnow/backend.env
+ExecStartPre=/bin/bash -eu -c 'iptables -C OUTPUT -d 169.254.169.254/32 -m owner --uid-owner 10011 -j REJECT 2>/dev/null || iptables -I OUTPUT 1 -d 169.254.169.254/32 -m owner --uid-owner 10011 -j REJECT'
+ExecStart=/bin/bash -euo pipefail -c 'TUNNEL_TOKEN=$$(aws secretsmanager get-secret-value --region us-east-1 --secret-id realopensnow/tunnel --query SecretString --output text); export TUNNEL_TOKEN; exec docker run --rm --init --name snow-tunnel --network host --user 10011:10011 --security-opt no-new-privileges --cap-drop ALL --read-only --memory 128m --env TUNNEL_TOKEN "$$TUNNEL_IMAGE" tunnel --no-autoupdate --protocol http2 run'
+ExecStop=/usr/bin/docker stop snow-tunnel
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

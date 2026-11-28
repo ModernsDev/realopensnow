@@ -1,0 +1,10 @@
+[Unit]
+Description=RealOpenSnow backend forecast refresh
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/realopensnow/backend.env
+ExecStart=/bin/bash -euo pipefail -c 'WORKER_SECRET=$$(aws secretsmanager get-secret-value --region us-east-1 --secret-id realopensnow/worker --query SecretString --output text); export WORKER_SECRET; exec docker run --rm --init --name snow-refresh --network host --security-opt no-new-privileges --cap-drop ALL --read-only --memory 512m --cpus 1 --env DSQL_ENDPOINT --env AWS_REGION=us-east-1 --env DSQL_USER=snow_app --env GIT_SHA --env TRACKED_POINTS_URL=https://snow.moderns.dev/internal/tracked-points --env WORKER_SECRET --env SNAPSHOT_SLOTS "$$IMAGE" refresh'
+TimeoutStartSec=15min

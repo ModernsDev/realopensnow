@@ -8,10 +8,9 @@ anyhow = "1"
 aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio", "default-https-client"] }
 aws-sdk-dsql = "1"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
-chrono-tz = "0.10"
 deadpool-postgres = "0.14"
 futures = "0.3"
+jiff = { version = "1", default-features = false, features = ["std", "tzdb-bundle-always"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1", features = ["derive"] }

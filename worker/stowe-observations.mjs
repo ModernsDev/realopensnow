@@ -1,7 +1,7 @@
 export const stoweObservationPath = '/api/observations/stowe'
 const source = 'https://api2.cocorahs.org/api/DailyPrecipObs?stationField=StationNumber&stationFieldValue=VT-WS-19&sortField=ObsDateTime&sortDir=DESC&units=US'
 
-export async function stoweDailyReports(limit) {
+async function stoweDailyReports(limit) {
   const upstream = await fetch(`${source}&limit=${limit}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
   if (!upstream.ok) throw new Error(`CoCoRaHS HTTP ${upstream.status}`)
   const { results } = await upstream.json()

@@ -1,6 +1,6 @@
 # RealOpenSnow
 
-开源的雪场降雪追踪站点：多模型降雪预报加权综合、附近测站雪况、收藏对比、历史预报快照与准确性统计。线上站点：<https://snow.moderns.dev>。
+开源的雪场降雪追踪站点：多模型降雪预报加权综合、附近测站雪况、收藏对比。线上站点：<https://snow.moderns.dev>。
 
 - 805 个雪场（北美 803 个，来自 OpenSkiMap）与自定义 GPS 地点
 - ECMWF、GFS、ICON、NBM 等多模型预报，可调权重，简化/多模型比较两种视图
@@ -65,7 +65,7 @@ npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangle
 
 界面支持中文和英文：设置里选过的语言（localStorage `snow-lang`）优先，否则浏览器首选语言为 zh* 时显示中文，其余显示英文。数据内的中文地名和站点名在英文界面按规则换算显示，存储数据不变。
 
-自定义地点保存在浏览器 localStorage，海拔与时区由 Open-Meteo 按坐标解析，海拔可手填。自定义地点不上报 Worker，也不支持快照和测站雪况。
+自定义地点保存在浏览器 localStorage，海拔与时区由 Open-Meteo 按坐标解析，海拔可手填。自定义地点不上报 Worker，也不支持测站雪况。
 
 工作台按雪场独立保存当前查询点 ID（仅本页状态），默认选择山脚。390px 下图表和明细在各自区域内滚动，可用键盘操作。请求失败与重试期间保留错误，成功后才清除，取消请求的响应不再写入状态。
 
@@ -79,9 +79,7 @@ npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangle
 
 雪况区位于雪场详情顶部，合并模型累计与附近测站数据。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。
 
-历史预报与准确性位于查询点详情。点击「获取并保存快照」由 Worker 从 Open-Meteo 获取并追加到 D1，历史可分页查看。快照保留模型值、获取时间、查询坐标、海拔、单位与当地有效日期。当前接口的模型起报时间为未知。首次保存前无本站快照。
-
-Waterbury 参考点按 CoCoRaHS 公布的同址坐标与 458 ft 海拔（139.6 m）请求预报。仅以最近 30 个当地日期内相邻日测时间明确、整点到整点且恰好相隔 24 小时的直接新雪衡量误差，使用保存的完整小时降雪累计覆盖同一窗口。窗口开始前的快照按获取时间分七个 24 小时提前量档，每 UTC 六小时保留最后一个快照进入统计，每模型每档对同一窗口最多计一次。少于十个窗口标为样本不足。首次同址保存后须等可匹配的观测窗结束并上报，才会出现真实样本。
+定时刷新收藏雪场预报时，Worker 同时把七日预报快照写入 D1 `forecast_snapshots`（Waterbury 参考点另存小时降雪），页面不展示。
 
 ## 官方站点运维
 

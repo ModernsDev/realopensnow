@@ -75,7 +75,7 @@ npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangle
 
 预报模式：「简化」（默认）显示加权综合，「多模型比较」并列各模型及降雪范围。默认权重定义在 `src/weather.ts`（ECMWF 50、GFS/ICON/NBM 20–25、其余 10–15，按比例换算），未经实测校准；某地无数据的模型跳过，其余按比例放大。「显示」开关只影响多模型比较、模型范围和对比选项，按浏览器保存在 `snow-hidden` localStorage。用户可在「设置」修改，按浏览器保存在 `snow-weights` localStorage，按比例换算占比，0 表示停用。按日、按字段加权；启用的模型部分缺测时其余权重归一化；当地有数据的启用模型两个及以上而当日可用不足两个为 null；一个都没有时为 null。
 
-雪质与雪线：小时请求另含 `rain`（mm）与 `freezing_level_height`（m），按日汇总为降雨、湿雪（气温高于 −1 °C 时的降雪）与冰冻层高低值。雪质由加权降雪、降雨和湿雪比例按 `src/snowQuality.ts` 的顺序规则分为未知、无新雪、少量、好、极好、湿雪、雨；前一日为湿雪或雨时不评极好。雪线取加权冰冻层高度减 300 m，仅 GFS、ICON、HRRR、ICON-EU、ICON-D2 提供冰冻层，ECMWF 等不参与；冰冻层字段不计入模型完整度。旧快照缺字段时雪质为未知。
+雪质与雪线：小时请求另含 `rain`（mm）与 `freezing_level_height`（m），按日汇总为降雨、湿雪（气温高于 −1 °C 时的降雪）与冰冻层高低值。雪质由加权降雪、降雨和湿雪比例按 `src/snowQuality.ts` 的顺序规则分为未知、无、少量、好、极好、湿雪、雨；前一日为湿雪或雨时不评极好。雪线取加权冰冻层高度减 300 m，仅 GFS、ICON、HRRR、ICON-EU、ICON-D2 提供冰冻层，ECMWF 等不参与；冰冻层字段不计入模型完整度。旧快照缺字段时雪质为未知。
 
 雪况区位于雪场详情顶部，合并模型累计与附近测站数据。Alta 与 Snowbird 使用 USDA NRCS AWDB（按 USDA 公共信息政策署名）的直接小时积雪深度。Niseko United 附近的倶知安使用日本气象厅 AMeDAS（公共数据利用规约 1.0）的积雪深度和气象厅发布的 24 小时降雪量，该降雪量采用逐小时积雪增量汇总。Stowe 附近使用 CoCoRaHS Waterbury 3.0 NW 的每日直接观测（[CC BY 3.0](https://www.cocorahs.org/content.aspx?page=datausagepolicy)），保留微量标记。小时观测满三小时、日观测满三十小时即标为过期并隐藏数值。
 

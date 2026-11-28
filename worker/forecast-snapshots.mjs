@@ -1,8 +1,9 @@
-import { queryBlockReason, resorts, waterburyPoint } from '../src/catalog.ts'
+import { resorts, waterburyPoint } from '../src/catalog.ts'
 import { forecastBatch, forecastSource } from '../src/weather.ts'
 import { hourlySnow, summarizeAccuracy } from './accuracy.mjs'
 import { stoweDailyReports } from './stowe-observations.mjs'
 
+export const snapshotUnits = { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h', rain_sum: 'mm', wet_snowfall_sum: 'cm', freezing_level_height_min: 'm', freezing_level_height_max: 'm' }
 const noCache = { 'cache-control': 'no-store' }
 const pageSize = 10
 const sixHours = 6 * 3_600_000
@@ -26,7 +27,7 @@ async function saveSnapshot(env, resort, point) {
     batch = {
       ...forecastBatch(data, resort, point, requested, new Date().toISOString()),
       issuedAt: null,
-      units: { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h', rain_sum: 'mm', wet_snowfall_sum: 'cm', freezing_level_height_min: 'm', freezing_level_height_max: 'm' },
+      units: snapshotUnits,
     }
     hourly = point.id === waterburyPoint.id ? hourlySnow(data) : null
   } catch (error) {
@@ -51,28 +52,6 @@ export async function captureSnapshot(env, pointId, en = false) {
   } catch (error) {
     return fail(en, error.zh, error.message, error.status)
   }
-}
-
-export async function refreshFavorites(env) {
-  const { results } = await env.DB.prepare('SELECT DISTINCT resort_id FROM user_favorites').all()
-  const ids = new Set(results.map(r => r.resort_id))
-  const queue = resorts.filter(r => ids.has(r.id)).flatMap(resort => resort.points.filter(point => !queryBlockReason(resort, point)).map(point => [resort, point]))
-  let saved = 0, failed = 0, limited = false
-  const worker = async () => {
-    for (let job = queue.shift(); job && !limited; job = queue.shift()) {
-      try {
-        await saveSnapshot(env, ...job)
-        saved++
-      } catch (error) {
-        failed++
-        if (error.status === 429) limited = true
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: 4 }, worker))
-  const summary = { event: 'favorite_refresh', resorts: ids.size, saved, failed, skipped: queue.length, limited }
-  console[failed ? 'warn' : 'log'](JSON.stringify(summary))
-  return summary
 }
 
 const timeOrder = 'ORDER BY fetched_at DESC, id DESC'

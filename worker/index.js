@@ -1,12 +1,14 @@
 import { assets, points } from './generated.js'
 import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
-import { captureSnapshot, refreshFavorites, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
+import { captureSnapshot, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
+import { latestForecast, refreshFavorites } from './forecast-store.mjs'
 import { auth, me } from './accounts.mjs'
 
 async function api(request, env, url) {
   const [, , route, point] = url.pathname.split('/')
   if (!points.has(point) || url.pathname !== `/api/${route}/${point}`) return new Response(null, { status: 404 })
   const en = request.headers.get('accept-language') === 'en'
+  if (request.method === 'GET' && route === 'forecast') return latestForecast(env, point)
   if (request.method === 'GET' && route === 'forecast-snapshots') return snapshotHistory(env, point, url.searchParams, en)
   if (request.method === 'GET' && route === 'forecast-accuracy') return stationAccuracy(env, point, en)
   if (request.method !== 'POST') return new Response(null, { status: 405 })
@@ -22,8 +24,8 @@ async function api(request, env, url) {
 }
 
 export default {
-  scheduled(_controller, env, ctx) {
-    ctx.waitUntil(refreshFavorites(env))
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(refreshFavorites(env, controller.scheduledTime))
   },
   async fetch(request, env) {
     const url = new URL(request.url)

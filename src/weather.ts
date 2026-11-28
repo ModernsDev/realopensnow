@@ -204,18 +204,46 @@ export function forecastSource(lat: number, lon: number, elevation: number, time
   return `https://api.open-meteo.com/v1/forecast?${query}`
 }
 
+export function pageSource(resort: Resort, point: QueryPoint) {
+  const { lat, lon } = point.coordinates.value!
+  return forecastSource(lat, lon, point.elevation.value!, resort.timezone, 15, 8)
+}
+
+export function pageForecast(data: Parameters<typeof forecastBatch>[0], resort: Resort, point: QueryPoint, requested: string, fetched: string): ForecastWithReport {
+  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 15), source: pageSource(resort, point) }
+  const batch = slicePeriod(extended, 0, 7)
+  const dates = pastDates(requested, resort.timezone)
+  const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
+  const periods = aggregatePeriods(data, [...dates, ...extended.dates], resort.timezone)
+  return { ...batch, extended, past, periods, report: dailyReport(batch, resort) }
+}
+
+async function storedForecast(point: QueryPoint, signal: AbortSignal) {
+  const response = await fetch(`/api/forecast/${point.id}`, { cache: 'no-store', signal })
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const data: ForecastWithReport = await response.json()
+  return forecastExpired(data, Date.now()) ? null : data
+}
+
 export async function forecast(resort: Resort, point: QueryPoint, signal?: AbortSignal): Promise<ForecastWithReport> {
   const blocked = queryBlockReason(resort, point)
   if (blocked) throw new Error(blocked)
-  const { lat, lon } = point.coordinates.value!
-  const elevation = point.elevation.value!
   const requested = new Date().toISOString()
   const hosted = import.meta.env?.VITE_HOSTED_FORECAST === '1'
-  const source = forecastSource(lat, lon, elevation, resort.timezone, 15, 8)
   const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000)
+  if (hosted && !resort.custom) {
+    try {
+      const stored = await storedForecast(point, requestSignal)
+      if (stored) return stored
+    } catch (error) {
+      if (signal?.aborted) throw error
+      console.warn('stored_forecast', point.id, error instanceof Error ? error.message : error)
+    }
+  }
   let data
   try {
-    const response = await fetch(source, { cache: 'no-store', signal: requestSignal })
+    const response = await fetch(pageSource(resort, point), { cache: 'no-store', signal: requestSignal })
     if (response.status === 429) throw new Error(t('天气服务已限流（429），请稍后重试。', 'The weather service is rate limiting requests (429). Please try again later.'))
     if (!response.ok) throw new Error(t(`天气服务请求失败（${response.status}）`, `Weather service request failed (${response.status})`))
     data = await response.json()
@@ -226,14 +254,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
     }
     throw error
   }
-  const fetched = new Date().toISOString()
-  const extended = { ...forecastBatch(data, resort, point, requested, fetched, 15), source }
-  const batch = slicePeriod(extended, 0, 7)
-  const dates = pastDates(requested, resort.timezone)
-  const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
-  const periods = aggregatePeriods(data, [...dates, ...extended.dates], resort.timezone)
-  const report = dailyReport(batch, resort)
-  return { ...batch, extended, past, periods, report }
+  return pageForecast(data, resort, point, requested, new Date().toISOString())
 }
 
 export function forecastBatch(data: { error?: boolean; elevation: number; latitude: number; longitude: number }, resort: Resort, point: QueryPoint, requested: string, fetched: string, days = 7): Forecast {

@@ -231,7 +231,7 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   const batch = slicePeriod(extended, 0, 7)
   const dates = pastDates(requested, resort.timezone)
   const past = { dates, daily: aggregateHourly(data, dates, resort.timezone).daily }
-  const periods = aggregatePeriods(data, [dates.at(-1)!, ...extended.dates], resort.timezone)
+  const periods = aggregatePeriods(data, [...dates, ...extended.dates], resort.timezone)
   const report = dailyReport(batch, resort)
   return { ...batch, extended, past, periods, report }
 }

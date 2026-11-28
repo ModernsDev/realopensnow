@@ -128,6 +128,15 @@ tr.today > * { border-top: 2px solid var(--blue); }
 .bars.compact .bar-column { min-width: 6px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
 .bar-column div { min-height: 1px; border-radius: 3px 3px 0 0; }
+.bar-column.day div { opacity: .55; }
+.bar-column.day + .bar-column.night { margin-left: 5px; }
+.day.past .bar-column.day div { opacity: .25; }
+.chart.split .bar-column { min-width: 18px; }
+.chart.split .bars.compact .bar-column { min-width: 4px; }
+.chart.long.split { min-width: calc(var(--days) * 56px); }
+.legend-parts { color: var(--muted); }
+td.part { white-space: nowrap; }
+td.part small { color: var(--muted); }
 
 .table-scroll { overflow-x: auto; margin: 0 24px; }
 .table-scroll:focus-visible { outline-offset: -3px; }

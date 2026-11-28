@@ -180,8 +180,8 @@ td:first-child, th:first-child { text-align: left; }
 .tile-snow span { display: block; font-size: 12px; }
 .tile-stats { display: grid; gap: 4px; margin: auto 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
 .tile-stats div { display: flex; justify-content: space-between; gap: 8px; }
-.tile-stats dt { color: var(--muted); }
-.tile-stats dd { margin: 0; font-variant-numeric: tabular-nums; }
+.tile-stats dt { color: var(--muted); white-space: nowrap; }
+.tile-stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .tile-status { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .tile-status.error { color: var(--danger); }
 .tile-status button { margin-top: 8px; color: var(--ink); }
@@ -276,3 +276,10 @@ td:first-child, th:first-child { text-align: left; }
 .grade-rules dl > div { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: baseline; }
 .grade-rules dt .grade { min-width: 64px; text-align: center; box-sizing: border-box; }
 .grade-rules dd { margin: 0; }
+.agreement { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; line-height: 18px; white-space: nowrap; background: #eef2f5; color: var(--muted); }
+.agreement-agree { background: #e3f4ee; color: #17775f; }
+.agreement-split { background: #fdf3d8; color: #8a6100; }
+.agreement-wide { background: #fde2e2; color: #b42318; }
+.agreement-uncertain { background: #efe6f8; color: #6b3fa0; }
+.tile-snow .agreement, .compare td .agreement { display: inline-block; margin-top: 4px; }
+.tile-stats .agreement { display: table; margin: 2px 0 0 auto; }

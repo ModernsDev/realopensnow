@@ -316,3 +316,17 @@ test('timeline ranges split into past days before today and forecast days from t
   assert.deepEqual(dates(-1, 0), ['p1', 'f0'])
   assert.deepEqual(dates(8, 14), [null, 'f8,f9,f10,f11,f12,f13,f14'])
 })
+
+test('model agreement labels describe snowfall spread across visible models', async () => {
+  const { agreement, snowAgreement, totalAgreement } = await import('../src/weather.ts')
+  assert.equal(agreement([5]), null)
+  assert.deepEqual(agreement([0, 0.5, 1.5]), { level: 'agree', count: 3 })
+  assert.deepEqual(agreement([10, 12, 14]), { level: 'agree', count: 3 })
+  assert.equal(agreement([10, 15, 25])!.level, 'split')
+  assert.equal(agreement([5, 20, 40])!.level, 'wide')
+  assert.deepEqual(agreement([0, 0, 0, 4]), { level: 'uncertain', count: 4 })
+  const f = { dates: ['a', 'b'], hidden: ['icon_seamless'], daily: { snowfall_sum_ecmwf_ifs025: [0, 10], snowfall_sum_gfs_seamless: [0, 2], snowfall_sum_icon_seamless: [30, 30], snowfall_sum_gem_global: [5, null] } }
+  assert.deepEqual(snowAgreement(f, 0), { level: 'uncertain', count: 3 })
+  assert.deepEqual(totalAgreement(f), { level: 'split', count: 2 })
+  assert.deepEqual(totalAgreement(f, [0]), { level: 'uncertain', count: 3 })
+})

@@ -258,7 +258,7 @@ td:first-child, th:first-child { text-align: left; }
 .grade-excellent { background: #1d5fc4; color: #fff; font-weight: 600; }
 .grade-excellent small { color: #fff; }
 .grade-wet { background: #efe6f8; color: #6b3fa0; }
-.grade-rain { background: #e2f3ea; color: #1f7a4d; }
+.grade-rain { background: #fdebd8; color: #b45309; }
 .grade-unknown { font-style: italic; }
 .grade-rules { margin: 16px 24px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; line-height: 1.6; color: var(--muted); }
 .grade-rules summary { cursor: pointer; color: var(--ink); font-weight: 600; }

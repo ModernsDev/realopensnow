@@ -235,7 +235,7 @@ td:first-child, th:first-child { text-align: left; }
   .resort + .resort { margin-top: 0; }
     .detail-header, .catalog, .compare { padding-inline: 16px; }
   .chart-heading, .footnote { padding-inline: 16px; }
-  .table-scroll { margin-inline: 16px; }
+  .table-scroll, .grade-rules { margin-inline: 16px; }
   .model-totals { margin-inline: 16px; }
   .model-totals > div { padding: 4px 8px 4px 10px; }
   .model-totals strong { font-size: 25px; }
@@ -256,8 +256,10 @@ td:first-child, th:first-child { text-align: left; }
 .grade-wet { background: #efe6f8; color: #6b3fa0; }
 .grade-rain { background: #e2f3ea; color: #1f7a4d; }
 .grade-unknown { font-style: italic; }
-.grade-rules { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-.grade-rules summary { cursor: pointer; color: var(--ink); }
+.grade-rules { margin: 16px 24px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.grade-rules summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.grade-rules p { margin: 0; }
 .grade-rules dl { display: grid; gap: 6px; margin: 10px 0; }
-.grade-rules dl > div { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: baseline; }
+.grade-rules dl > div { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: baseline; }
+.grade-rules dt .grade { min-width: 64px; text-align: center; box-sizing: border-box; }
 .grade-rules dd { margin: 0; }

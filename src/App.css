@@ -294,8 +294,10 @@ td:first-child, th:first-child { text-align: left; }
 .whisker::after { bottom: 0; }
 .whisker.uncertain { border-left-style: dashed; }
 .simple-legend { display: grid; gap: 6px; margin: -8px 24px 16px; font-size: 13px; }
-.simple-legend > div { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: baseline; }
+.simple-legend > div { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: baseline; }
 .simple-legend dt { color: var(--muted); }
+.simple-legend dt label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.simple-legend .off dd { opacity: .35; }
 .simple-legend dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .simple-legend span { display: flex; gap: 6px; align-items: center; }
 .simple-legend i { width: 10px; height: 10px; border-radius: 2px; }

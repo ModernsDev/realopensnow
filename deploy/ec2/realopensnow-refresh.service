@@ -5,5 +5,6 @@ After=docker.service network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/realopensnow/run
+EnvironmentFile=/etc/realopensnow/image.env
+ExecStart=/bin/bash -euo pipefail -c 'CLOUDFLARE_D1_TOKEN=$$(aws secretsmanager get-secret-value --region us-east-1 --secret-id realopensnow/d1 --query SecretString --output text); export CLOUDFLARE_D1_TOKEN; exec docker run --rm --init --name realopensnow-refresh --env CLOUDFLARE_D1_TOKEN --security-opt no-new-privileges --cap-drop ALL --read-only --memory 512m --cpus 1 "$$IMAGE"'
 TimeoutStartSec=15min

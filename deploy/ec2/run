@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-CLOUDFLARE_D1_TOKEN=$(aws secretsmanager get-secret-value --region us-east-1 --secret-id realopensnow/d1 --query SecretString --output text)
-export CLOUDFLARE_D1_TOKEN
-exec docker run --rm --init --name realopensnow-refresh --env CLOUDFLARE_D1_TOKEN \
-  --security-opt no-new-privileges --cap-drop ALL --read-only --user 65534:65534 \
-  --volume /opt/realopensnow/current:/app:ro --workdir /app node:24-slim node scripts/refresh-forecasts.mjs

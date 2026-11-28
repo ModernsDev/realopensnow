@@ -20,7 +20,6 @@ export const modelMembers = {
   icon_d2: ['dwd_icon_d2'],
 }
 const metaPaths = [...new Set(Object.values(modelMembers).flat())]
-const upstreamLimit = 48
 const retryDelay = 2 * 3_600_000
 const roundBudget = 10 * 60_000
 const retention = 40 * 86_400_000
@@ -58,7 +57,7 @@ async function fetchModels(point, ids, start, end) {
     return { kind: 'ok', data }
   } catch (error) {
     console.warn('forecast_store_upstream', point.id, error.message)
-    return { kind: /subrequest/i.test(error.message) ? 'limited' : 'failed' }
+    return { kind: 'failed' }
   }
 }
 
@@ -81,7 +80,7 @@ function sliceShape(data, start, end) {
   return { ...data, hourly: Object.fromEntries(Object.entries(data.hourly).map(([key, values]) => [key, values.slice(from, until)])) }
 }
 
-export async function refreshPoint(env, resort, point, metas, slot, budget = { left: Infinity }) {
+export async function refreshPoint(env, resort, point, metas, slot) {
   const now = Date.now()
   const row = await env.DB.prepare('SELECT version, config, state, series, built_date, payload IS NOT NULL AS built FROM forecast_latest WHERE point = ?').bind(point.id).first()
   const version = row?.version ?? 0
@@ -115,11 +114,7 @@ export async function refreshPoint(env, resort, point, metas, slot, budget = { l
     if (entry.retry_at > now) { confirmed = false; continue }
     due.push({ id, updated, from: Math.min(...candidates) })
   }
-  if (due.length && budget.left <= 0) {
-    confirmed = false
-    limited = true
-  } else if (due.length) {
-    budget.left--
+  if (due.length) {
     const from = Math.max(start, Math.floor(Math.min(...due.map(d => d.from)) / hour) * hour)
     const ids = due.some(d => d.id === 'ecmwf_ifs025') ? due.map(d => d.id) : ['ecmwf_ifs025', ...due.map(d => d.id)]
     const result = await fetchModels(point, ids, from, end)
@@ -222,17 +217,15 @@ export async function refreshFavorites(env, scheduledTime) {
     .sort((a, b) => (updated.get(a[1].id) ?? 0) - (updated.get(b[1].id) ?? 0))
   const metas = queue.length ? await readMetas() : {}
   const slot = new Date(scheduledTime).getUTCHours() % 3 === 0 ? Math.floor(scheduledTime / 10_800_000) * 10_800_000 : null
-  const summary = { event: 'favorite_refresh', resorts: ids.size, points: queue.length, metas: Object.keys(metas).length, committed: 0, conflicts: 0, fetched: 0, failed: 0, errors: 0, limited: false, deferred: 0 }
-  const budget = { left: upstreamLimit - metaPaths.length }
+  const summary = { event: 'favorite_refresh', resorts: ids.size, points: queue.length, metas: Object.keys(metas).length, committed: 0, conflicts: 0, fetched: 0, failed: 0, errors: 0, limited: false }
   const worker = async () => {
     for (let job = queue.shift(); job; job = queue.shift()) {
       try {
-        const result = await refreshPoint(env, ...job, metas, slot, budget)
+        const result = await refreshPoint(env, ...job, metas, slot)
         summary[result.committed ? 'committed' : 'conflicts']++
         summary.fetched += result.fetched
         summary.failed += result.failed
-        if (result.limited && budget.left > 0) summary.limited = true
-        if (result.limited && budget.left <= 0) summary.deferred++
+        if (result.limited) summary.limited = true
       } catch (error) {
         summary.errors++
         console.error('forecast_store_point', job[1].id, error.message)

@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly RealOpenSnow forecast refresh
+
+[Timer]
+OnCalendar=*-*-* *:15:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -177,19 +177,6 @@ test('a model whose column is missing is marked outside and only ECMWF answers u
   assert.equal((await read(env)).daily.snowfall_sum_ecmwf_ifs025[0], 24)
 })
 
-test('points beyond the round budget are deferred without being marked for retry', async t => {
-  clock(t)
-  const world = upstream(t)
-  const { db, env } = database()
-  const budget = { left: 1 }
-  await refreshPoint(env, stowe, stowe.points[0], metas(world), null, budget)
-  const deferred = await refreshPoint(env, stowe, stowe.points[1], metas(world), null, budget)
-  assert.deepEqual([deferred.committed, deferred.fetched, deferred.limited], [true, 0, true])
-  assert.equal(world.requests.length, 1)
-  const state = JSON.parse(db.prepare('SELECT state FROM forecast_latest WHERE point = ?').get(stowe.points[1].id)!.state as string)
-  assert.ok(Object.values(state).every((entry: any) => entry.pending && !entry.retry_at))
-})
-
 test('the scheduled round only refreshes favorited resorts and stops when rate limited', async t => {
   clock(t)
   const world = upstream(t)

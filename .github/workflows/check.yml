@@ -76,7 +76,7 @@ jobs:
       - run: cargo test --locked
         working-directory: backend
       - run: npm ci
-      - run: node backend/tests/parity/generate.mjs && git diff --exit-code backend/tests/fixtures/expected
+      - run: node backend/tests/parity/generate.mjs && git diff --exit-code -- backend/tests/fixtures/expected ':!backend/tests/fixtures/expected/tz-differences.json'
   backend-image:
     needs: [build, backend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

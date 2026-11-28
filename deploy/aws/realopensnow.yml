@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  HostSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  HostRoleName:
+    Type: String
+Resources:
+  Cluster:
+    Type: AWS::DSQL::Cluster
+    Properties:
+      DeletionProtectionEnabled: true
+      Tags: [{Key: Name, Value: realopensnow}]
+  TunnelEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref HostSecurityGroupId
+      IpProtocol: tcp
+      FromPort: 7844
+      ToPort: 7844
+      CidrIp: 0.0.0.0/0
+      Description: cloudflared HTTP/2 tunnel
+  TunnelSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: realopensnow/tunnel
+      GenerateSecretString: {}
+  WorkerSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: realopensnow/worker
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
+  HostPolicy:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      PolicyName: realopensnow
+      RoleName: !Ref HostRoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: dsql:DbConnect
+            Resource: !GetAtt Cluster.ResourceArn
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: [!Ref TunnelSecret, !Ref WorkerSecret]
+Outputs:
+  ClusterIdentifier:
+    Value: !Ref Cluster
+  ClusterArn:
+    Value: !GetAtt Cluster.ResourceArn
+  ClusterEndpoint:
+    Value: !Sub '${Cluster}.dsql.${AWS::Region}.on.aws'
+  TunnelSecretArn:
+    Value: !Ref TunnelSecret
+  WorkerSecretArn:
+    Value: !Ref WorkerSecret

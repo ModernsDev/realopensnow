@@ -1,0 +1,14 @@
+[Unit]
+Description=RealOpenSnow weather API
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+EnvironmentFile=/etc/realopensnow/backend.env
+ExecStart=/usr/bin/docker run --rm --init --name snow-api --network host --security-opt no-new-privileges --cap-drop ALL --read-only --memory 512m --cpus 1 --env DSQL_ENDPOINT --env AWS_REGION=us-east-1 --env DSQL_USER=snow_app --env GIT_SHA --env LISTEN=127.0.0.1:8010 ${IMAGE} serve
+ExecStop=/usr/bin/docker stop snow-api
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

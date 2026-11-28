@@ -14,6 +14,7 @@ import { CustomLocationForm } from './CustomLocationForm'
 import { Settings } from './Settings'
 import { elevation, metric, readUnits, saveUnits, validUnits, type Units } from './units'
 import { defaultChartLayers, readChartLayers, saveChartLayers, validChartLayers, type ChartLayers } from './chartLayers'
+import { readForecastRange, saveForecastRange, validForecastRange, type ForecastRange } from './forecastRange'
 import { readHidden, readWeights, saveSettings, validHidden, validWeights } from './weights'
 import { Regions } from './Regions'
 import './App.css'
@@ -58,7 +59,8 @@ function App() {
   const setUnits = (next: Units) => { saveUnits(next, storage); setUnitsState(next) }
   const [chartLayers, setChartLayersState] = useState(() => readChartLayers(storage))
   const setChartLayers = (next: ChartLayers) => { saveChartLayers(next, storage); setChartLayersState(next) }
-  const [range, setRange] = useState(defaultRange)
+  const [range, setRangeState] = useState(() => readForecastRange(storage))
+  const setRange = (next: ForecastRange) => { saveForecastRange(next, storage); setRangeState(next) }
   const [view, setView] = useState(currentView)
   const [account, setAccount] = useState<Account | null | undefined>(accountsEnabled ? undefined : null)
   const [accountError, setAccountError] = useState<string | null>(null)
@@ -75,6 +77,7 @@ function App() {
     setWeightState({ weights, hidden, error: saveSettings(weights, hidden, storage) })
     setUnits(validUnits(data.units) ? data.units : metric)
     setChartLayers(validChartLayers(data.chartLayers) ? data.chartLayers : defaultChartLayers)
+    setRange(validForecastRange(data.forecastRange) ? data.forecastRange : defaultRange)
     setComparisonIds(next.slice(0, 5))
     setSelected(prev => ids.has(prev) ? prev : next[0] ?? '')
   }
@@ -87,9 +90,10 @@ function App() {
   }, [])
   useEffect(() => {
     if (!account) return
-    const data = { favorites, customLocations: custom, weights: weightState.weights, hidden: weightState.hidden, units, chartLayers }
-    saving.current = saving.current.then(() => saveUserData(data)).then(setAccountError)
-  }, [account, favorites, custom, weightState.weights, weightState.hidden, units, chartLayers])
+    const data = { favorites, customLocations: custom, weights: weightState.weights, hidden: weightState.hidden, units, chartLayers, forecastRange: range }
+    const timer = setTimeout(() => { saving.current = saving.current.then(() => saveUserData(data)).then(setAccountError) }, 600)
+    return () => clearTimeout(timer)
+  }, [account, favorites, custom, weightState.weights, weightState.hidden, units, chartLayers, range])
   const navigate = (next: View) => {
     window.location.hash = next
     setView(next)

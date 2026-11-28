@@ -2,10 +2,11 @@ import { t } from './i18n.ts'
 import type { CustomLocation } from './customLocations'
 import type { Units } from './units'
 import type { ChartLayers } from './chartLayers'
+import type { ForecastRange } from './forecastRange'
 import type { Weights } from './weather'
 
 export type Account = { name: string; email: string; image: string | null }
-export type UserData = { favorites: string[]; customLocations: CustomLocation[]; weights: Weights; hidden: string[]; units: Units; chartLayers: ChartLayers }
+export type UserData = { favorites: string[]; customLocations: CustomLocation[]; weights: Weights; hidden: string[]; units: Units; chartLayers: ChartLayers; forecastRange: ForecastRange }
 
 export const accountsEnabled = import.meta.env.VITE_HOSTED_FORECAST === '1'
 

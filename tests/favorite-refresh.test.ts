@@ -33,26 +33,31 @@ function database() {
   return { db, env: { DB } }
 }
 
-type Upstream = { runs: Record<string, number>; value: number; outside: string[]; fail: string[]; requests: { model: string; from: number; to: number }[] }
+type Upstream = { runs: Record<string, number>; value: number; outside: string[]; fail: string[]; requests: { models: string[]; from: number; to: number }[] }
 function upstream(t: TestContext): Upstream {
   const world: Upstream = { runs: {}, value: 1, outside: ['icon_eu', 'icon_d2'], fail: [], requests: [] }
   t.mock.method(globalThis, 'fetch', async (input: string) => {
     const url = new URL(input)
     const meta = /\/data\/(.+)\/static/.exec(url.pathname)
     if (meta) return Response.json({ last_run_initialisation_time: world.runs[meta[1]] ?? firstRun, last_run_availability_time: start / 1000 - hour })
-    const model = url.searchParams.get('models')!
+    const requested = url.searchParams.get('models')!.split(',')
     const from = Date.parse(url.searchParams.get('start_hour') + 'Z') / 1000
     const to = Date.parse(url.searchParams.get('end_hour') + 'Z') / 1000
-    world.requests.push({ model, from, to })
-    if (world.outside.includes(model)) return Response.json({ error: true, reason: 'No data is available for this location' }, { status: 400 })
-    if (world.fail.includes(model)) return new Response('{}', { status: 500 })
+    world.requests.push({ models: requested, from, to })
+    if (requested.some(model => world.fail.includes(model))) return new Response('{}', { status: 500 })
     const time = Array.from({ length: (to - from) / hour + 1 }, (_, i) => from + i * hour)
     const column = time.map(() => world.value)
-    return Response.json({
-      latitude: 44.5, longitude: -72.75, elevation: Number(url.searchParams.get('elevation')), timezone: 'GMT',
-      hourly_units: { time: 'unixtime', snowfall: 'cm', temperature_2m: '°C', wind_gusts_10m: 'km/h', rain: 'mm', freezing_level_height: 'm' },
-      hourly: { time, snowfall: column, temperature_2m: column, wind_gusts_10m: column, rain: column, freezing_level_height: column },
-    })
+    const covered = requested.filter(model => !world.outside.includes(model))
+    const units: Record<string, string> = { time: 'unixtime' }
+    const hourly: Record<string, unknown> = { time }
+    for (const [variable, unit] of [['snowfall', 'cm'], ['temperature_2m', '°C'], ['wind_gusts_10m', 'km/h'], ['rain', 'mm'], ['freezing_level_height', 'm']]) {
+      for (const model of covered) {
+        const key = covered.length === 1 ? variable : `${variable}_${model}`
+        units[key] = unit
+        hourly[key] = column
+      }
+    }
+    return Response.json({ latitude: 44.5, longitude: -72.75, elevation: Number(url.searchParams.get('elevation')), timezone: 'GMT', hourly_units: units, hourly })
   })
   return world
 }
@@ -75,7 +80,7 @@ test('first run fetches the whole window per model, stores records and serves th
   const result = await refreshPoint(env, stowe, base, metas(world), start - start % 10_800_000)
   const window = forecastWindow(start, stowe.timezone)
   assert.deepEqual(result, { committed: true, fetched: 10, failed: 0, limited: false })
-  assert.ok(world.requests.every(r => r.from === window.start && r.to === window.end))
+  assert.deepEqual(world.requests, [{ models: models.map(m => m.id), from: window.start, to: window.end }])
   assert.equal(db.prepare('SELECT count(*) n FROM forecast_records').get()!.n, 10)
   assert.equal(db.prepare('SELECT count(*) n FROM forecast_snapshots WHERE cron_slot IS NOT NULL').get()!.n, 1)
   const page = await read(env)
@@ -102,7 +107,7 @@ test('later runs fetch only models with a new run, from the last seen run onward
   world.value = 2
   await refreshPoint(env, stowe, base, metas(world), null)
   const window = forecastWindow(start, stowe.timezone)
-  assert.deepEqual(world.requests, ['gfs_seamless', 'gfs_hrrr'].map(model => ({ model, from: firstRun, to: window.end })))
+  assert.deepEqual(world.requests, [{ models: ['ecmwf_ifs025', 'gfs_seamless', 'gfs_hrrr'], from: firstRun, to: window.end }])
   const series = JSON.parse(db.prepare('SELECT series FROM forecast_latest').get()!.series as string)
   const split = (firstRun - window.start) / hour
   assert.deepEqual([series.models.gfs_hrrr.hourly.snowfall[split - 1], series.models.gfs_hrrr.hourly.snowfall[split]], [1, 2])
@@ -144,7 +149,7 @@ test('after local midnight the new tail is fetched before the forecast is served
   world.requests.length = 0
   await refreshPoint(env, stowe, base, metas(world), null)
   const after = forecastWindow(next, stowe.timezone)
-  assert.ok(world.requests.length === 10 && world.requests.every(r => r.from === before.end + hour && r.to === after.end))
+  assert.deepEqual(world.requests, [{ models: models.map(m => m.id).filter(id => !world.outside.includes(id)), from: before.end + hour, to: after.end }])
   const page = await read(env)
   assert.equal(page.periods.daily.snowfall_sum_ecmwf_ifs025.at(-1), 12)
 })
@@ -160,15 +165,29 @@ test('a stale writer leaves no records or snapshots behind', async t => {
   assert.deepEqual({ ...db.prepare('SELECT (SELECT count(*) FROM forecast_records) records, (SELECT count(*) FROM forecast_snapshots) snapshots, (SELECT version FROM forecast_latest) version').get() }, { records: 10, snapshots: 1, version: 1 })
 })
 
-test('without the ECMWF grid other models are kept but nothing is served', async t => {
+test('a model whose column is missing is marked outside and only ECMWF answers unsuffixed', async t => {
   clock(t)
   const world = upstream(t)
-  world.fail = ['ecmwf_ifs025']
+  world.outside = models.map(m => m.id).filter(id => id !== 'ecmwf_ifs025')
   const { db, env } = database()
-  const result = await refreshPoint(env, stowe, base, metas(world), start - start % 10_800_000)
-  assert.deepEqual([result.committed, result.fetched], [true, 9])
-  assert.equal(await read(env), 404)
-  assert.equal(db.prepare('SELECT count(*) n FROM forecast_snapshots').get()!.n, 0)
+  const result = await refreshPoint(env, stowe, base, metas(world), null)
+  assert.deepEqual([result.committed, result.fetched], [true, 1])
+  const state = JSON.parse(db.prepare('SELECT state FROM forecast_latest').get()!.state as string)
+  assert.equal(Object.values(state).filter((entry: any) => entry.outside).length, models.length - 1)
+  assert.equal((await read(env)).daily.snowfall_sum_ecmwf_ifs025[0], 24)
+})
+
+test('points beyond the round budget are deferred without being marked for retry', async t => {
+  clock(t)
+  const world = upstream(t)
+  const { db, env } = database()
+  const budget = { left: 1 }
+  await refreshPoint(env, stowe, stowe.points[0], metas(world), null, budget)
+  const deferred = await refreshPoint(env, stowe, stowe.points[1], metas(world), null, budget)
+  assert.deepEqual([deferred.committed, deferred.fetched, deferred.limited], [true, 0, true])
+  assert.equal(world.requests.length, 1)
+  const state = JSON.parse(db.prepare('SELECT state FROM forecast_latest WHERE point = ?').get(stowe.points[1].id)!.state as string)
+  assert.ok(Object.values(state).every((entry: any) => entry.pending && !entry.retry_at))
 })
 
 test('the scheduled round only refreshes favorited resorts and stops when rate limited', async t => {
@@ -178,6 +197,6 @@ test('the scheduled round only refreshes favorited resorts and stops when rate l
   db.prepare('INSERT INTO user_favorites VALUES (?, ?), (?, ?), (?, ?)').run('a', 'stowe', 'b', 'stowe', 'a', 'custom-1')
   const summary = await refreshFavorites(env, start)
   assert.deepEqual([summary.points, summary.committed, summary.skipped], [stowe.points.length, stowe.points.length, 0])
-  assert.deepEqual(new Set(world.requests.map(r => r.model)).size, models.length)
+  assert.equal(world.requests.length, stowe.points.length)
   assert.equal(db.prepare('SELECT count(DISTINCT point) n FROM forecast_latest').get()!.n, stowe.points.length)
 })

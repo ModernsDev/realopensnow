@@ -20,6 +20,7 @@ export const modelMembers = {
   icon_d2: ['dwd_icon_d2'],
 }
 const metaPaths = [...new Set(Object.values(modelMembers).flat())]
+const upstreamLimit = 48
 const retryDelay = 2 * 3_600_000
 const roundBudget = 10 * 60_000
 const retention = 40 * 86_400_000
@@ -43,22 +44,21 @@ export function forecastWindow(now, timezone, past = 8, days = 16) {
 const pointConfig = (resort, point) => JSON.stringify([point.coordinates.value, point.elevation.value, resort.timezone, modelMembers])
 const stamp = seconds => new Date(seconds * 1000).toISOString().slice(0, 16)
 
-async function fetchSlice(point, model, start, end) {
+async function fetchModels(point, ids, start, end) {
   const { lat, lon } = point.coordinates.value
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(point.elevation.value), timezone: 'GMT', models: model, hourly: variables.join(','), timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm', start_hour: stamp(start), end_hour: stamp(end) })
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(point.elevation.value), timezone: 'GMT', models: ids.join(','), hourly: variables.join(','), timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm', start_hour: stamp(start), end_hour: stamp(end) })
   try {
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`, { redirect: 'manual', signal: AbortSignal.timeout(20000) })
     if (response.status === 429) return { kind: 'limited' }
-    const data = await response.json()
-    if (data.error && data.reason === 'No data is available for this location') return { kind: 'outside' }
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const data = await response.json()
     const time = data.hourly?.time
     if (!Array.isArray(time) || time.length !== (end - start) / hour + 1 || time.some((value, i) => value !== start + i * hour)) throw new Error('unexpected time axis')
     if (!Number.isFinite(data.latitude) || !Number.isFinite(data.longitude) || data.elevation !== point.elevation.value) throw new Error('unexpected grid')
     return { kind: 'ok', data }
   } catch (error) {
-    console.warn('forecast_store_upstream', point.id, model, error.message)
-    return { kind: 'failed' }
+    console.warn('forecast_store_upstream', point.id, error.message)
+    return { kind: /subrequest/i.test(error.message) ? 'limited' : 'failed' }
   }
 }
 
@@ -81,7 +81,7 @@ function sliceShape(data, start, end) {
   return { ...data, hourly: Object.fromEntries(Object.entries(data.hourly).map(([key, values]) => [key, values.slice(from, until)])) }
 }
 
-export async function refreshPoint(env, resort, point, metas, slot) {
+export async function refreshPoint(env, resort, point, metas, slot, budget = { left: Infinity }) {
   const now = Date.now()
   const row = await env.DB.prepare('SELECT version, config, state, series, built_date, payload IS NOT NULL AS built FROM forecast_latest WHERE point = ?').bind(point.id).first()
   const version = row?.version ?? 0
@@ -97,11 +97,12 @@ export async function refreshPoint(env, resort, point, metas, slot) {
   }])) }
   const records = []
   let limited = false, confirmed = true, merged = false, failed = 0
+  const due = []
   for (const { id } of models) {
     const entry = state[id] ??= { seen: {} }
     if (entry.outside) continue
     const members = modelMembers[id]
-    if (limited || members.some(member => !metas[member])) { confirmed = false; continue }
+    if (members.some(member => !metas[member])) { confirmed = false; continue }
     const updated = members.filter(member => metas[member].available * 1000 <= now && !(entry.seen[member] >= metas[member].init))
     const candidates = updated.map(member => entry.seen[member] ?? start)
     if (!(entry.covered_to >= end)) candidates.push(entry.covered_to === undefined ? start : entry.covered_to + hour)
@@ -112,37 +113,54 @@ export async function refreshPoint(env, resort, point, metas, slot) {
     }
     entry.pending = true
     if (entry.retry_at > now) { confirmed = false; continue }
-    const from = Math.max(start, Math.floor(Math.min(...candidates) / hour) * hour)
-    const result = await fetchSlice(point, id, from, end)
-    if (result.kind === 'outside') {
-      state[id] = { outside: true }
-      delete series.models[id]
-      merged = true
-    } else if (result.kind === 'ok') {
+    due.push({ id, updated, from: Math.min(...candidates) })
+  }
+  if (due.length && budget.left <= 0) {
+    confirmed = false
+    limited = true
+  } else if (due.length) {
+    budget.left--
+    const from = Math.max(start, Math.floor(Math.min(...due.map(d => d.from)) / hour) * hour)
+    const ids = due.some(d => d.id === 'ecmwf_ifs025') ? due.map(d => d.id) : ['ecmwf_ifs025', ...due.map(d => d.id)]
+    const result = await fetchModels(point, ids, from, end)
+    if (result.kind === 'ok') {
       const { data } = result
-      const target = series.models[id] ??= { hourly: Object.fromEntries(variables.map(variable => [variable, Array(count).fill(null)])) }
-      const hourly = {}
-      for (const variable of variables) {
-        const column = data.hourly[variable]
-        if (!Array.isArray(column) || column.length !== data.hourly.time.length) { target.hourly[variable] = null; continue }
-        hourly[variable] = column
-        target.hourly[variable] ??= Array(count).fill(null)
-        column.forEach((value, i) => { target.hourly[variable][(from - start) / hour + i] = value })
-      }
-      target.units = data.hourly_units
-      target.grid = { latitude: data.latitude, longitude: data.longitude, elevation: data.elevation }
+      const single = variables.some(variable => Object.hasOwn(data.hourly, variable))
       const fetchedAt = Date.now()
-      for (const member of updated) entry.seen[member] = metas[member].init
-      Object.assign(entry, { covered_to: end, fetched_at: fetchedAt, verified_at: fetchedAt })
-      delete entry.pending
-      delete entry.retry_at
-      records.push([point.id, id, fetchedAt, from, end, JSON.stringify(Object.fromEntries(members.map(member => [member, metas[member]]))), JSON.stringify(hourly), JSON.stringify(target.units), JSON.stringify(target.grid)])
-      merged = true
+      for (const { id, updated } of due) {
+        const key = variable => single ? id === 'ecmwf_ifs025' ? variable : null : `${variable}_${id}`
+        const entry = state[id]
+        if (!variables.some(variable => key(variable) && Object.hasOwn(data.hourly, key(variable)))) {
+          state[id] = { outside: true }
+          delete series.models[id]
+          merged = true
+          continue
+        }
+        const target = series.models[id] ??= { hourly: Object.fromEntries(variables.map(variable => [variable, Array(count).fill(null)])) }
+        const hourly = {}
+        const units = {}
+        for (const variable of variables) {
+          const column = data.hourly[key(variable)]
+          if (!Array.isArray(column) || column.length !== data.hourly.time.length) { target.hourly[variable] = null; continue }
+          hourly[variable] = column
+          units[variable] = data.hourly_units[key(variable)]
+          target.hourly[variable] ??= Array(count).fill(null)
+          column.forEach((value, i) => { target.hourly[variable][(from - start) / hour + i] = value })
+        }
+        target.units = units
+        target.grid = { latitude: data.latitude, longitude: data.longitude, elevation: data.elevation }
+        for (const member of updated) entry.seen[member] = metas[member].init
+        Object.assign(entry, { covered_to: end, fetched_at: fetchedAt, verified_at: fetchedAt })
+        delete entry.pending
+        delete entry.retry_at
+        records.push([point.id, id, fetchedAt, from, end, JSON.stringify(Object.fromEntries(modelMembers[id].map(member => [member, metas[member]]))), JSON.stringify(hourly), JSON.stringify(units), JSON.stringify(target.grid)])
+        merged = true
+      }
     } else {
       confirmed = false
-      failed++
+      failed = due.length
       if (result.kind === 'limited') limited = true
-      else entry.retry_at = now + retryDelay
+      else for (const { id } of due) state[id].retry_at = now + retryDelay
     }
   }
 
@@ -204,15 +222,17 @@ export async function refreshFavorites(env, scheduledTime) {
     .sort((a, b) => (updated.get(a[1].id) ?? 0) - (updated.get(b[1].id) ?? 0))
   const metas = queue.length ? await readMetas() : {}
   const slot = new Date(scheduledTime).getUTCHours() % 3 === 0 ? Math.floor(scheduledTime / 10_800_000) * 10_800_000 : null
-  const summary = { event: 'favorite_refresh', resorts: ids.size, points: queue.length, metas: Object.keys(metas).length, committed: 0, conflicts: 0, fetched: 0, failed: 0, errors: 0, limited: false }
+  const summary = { event: 'favorite_refresh', resorts: ids.size, points: queue.length, metas: Object.keys(metas).length, committed: 0, conflicts: 0, fetched: 0, failed: 0, errors: 0, limited: false, deferred: 0 }
+  const budget = { left: upstreamLimit - metaPaths.length }
   const worker = async () => {
     for (let job = queue.shift(); job; job = queue.shift()) {
       try {
-        const result = await refreshPoint(env, ...job, metas, slot)
+        const result = await refreshPoint(env, ...job, metas, slot, budget)
         summary[result.committed ? 'committed' : 'conflicts']++
         summary.fetched += result.fetched
         summary.failed += result.failed
-        if (result.limited) summary.limited = true
+        if (result.limited && budget.left > 0) summary.limited = true
+        if (result.limited && budget.left <= 0) summary.deferred++
       } catch (error) {
         summary.errors++
         console.error('forecast_store_point', job[1].id, error.message)

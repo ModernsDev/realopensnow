@@ -41,8 +41,13 @@ function upstream(t: TestContext): Upstream {
     const meta = /\/data\/(.+)\/static/.exec(url.pathname)
     if (meta) return Response.json({ last_run_initialisation_time: world.runs[meta[1]] ?? firstRun, last_run_availability_time: start / 1000 - hour })
     const requested = url.searchParams.get('models')!.split(',')
-    const from = Date.parse(url.searchParams.get('start_hour') + 'Z') / 1000
-    const to = Date.parse(url.searchParams.get('end_hour') + 'Z') / 1000
+    const zone = url.searchParams.get('timezone')!
+    const wall = (seconds: number) => new Intl.DateTimeFormat('sv-SE', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(seconds * 1000).replace(' ', 'T')
+    const utc = (text: string) => { const guess = Date.parse(text + 'Z') / 1000; return Array.from({ length: 29 }, (_, i) => guess + (i - 14) * hour).find(t => wall(t) === text)! }
+    const lastDay = new Date(Date.parse(new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(Date.now())) + 15 * 86_400_000).toISOString().slice(0, 10)
+    if (url.searchParams.get('end_hour')!.slice(0, 10) > lastDay) return Response.json({ error: true, reason: "Parameter 'end_hour' is out of allowed range" }, { status: 400 })
+    const from = utc(url.searchParams.get('start_hour')!)
+    const to = utc(url.searchParams.get('end_hour')!)
     world.requests.push({ models: requested, from, to })
     if (requested.some(model => world.fail.includes(model))) return new Response('{}', { status: 500 })
     const time = Array.from({ length: (to - from) / hour + 1 }, (_, i) => from + i * hour)
@@ -90,6 +95,17 @@ test('first run fetches the whole window per model, stores records and serves th
   assert.equal(page.daily.snowfall_sum_ecmwf_ifs025[0], 24)
   assert.equal(page.daily.snowfall_sum_icon_d2[0], null)
   assert.equal(page.fetched, new Date(start).toISOString())
+})
+
+test('the window end stays inside the local date range Open-Meteo allows once the local day has started', async t => {
+  const morning = Date.parse('2026-11-28T12:00:00Z')
+  clock(t, morning)
+  const world = upstream(t)
+  const { env } = database()
+  const result = await refreshPoint(env, stowe, base, metas(world), null)
+  const window = forecastWindow(morning, stowe.timezone)
+  assert.deepEqual(result, { committed: true, fetched: 10, failed: 0, limited: false })
+  assert.deepEqual(world.requests, [{ models: models.map(m => m.id), from: window.start, to: window.end }])
 })
 
 test('later runs fetch only models with a new run, from the last seen run onward', async t => {

@@ -41,11 +41,12 @@ export function forecastWindow(now, timezone, past = 8, days = 16) {
 }
 
 const pointConfig = (resort, point) => JSON.stringify([point.coordinates.value, point.elevation.value, resort.timezone, modelMembers])
-const stamp = seconds => new Date(seconds * 1000).toISOString().slice(0, 16)
+const wallClock = (seconds, timezone) => new Intl.DateTimeFormat('sv-SE', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(seconds * 1000).replace(' ', 'T')
+const ambiguous = (seconds, timezone) => [seconds - hour, seconds + hour].some(other => wallClock(other, timezone) === wallClock(seconds, timezone))
 
-async function fetchModels(point, ids, start, end) {
+async function fetchModels(point, timezone, ids, start, end) {
   const { lat, lon } = point.coordinates.value
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(point.elevation.value), timezone: 'GMT', models: ids.join(','), hourly: variables.join(','), timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm', start_hour: stamp(start), end_hour: stamp(end) })
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lon), elevation: String(point.elevation.value), timezone, models: ids.join(','), hourly: variables.join(','), timeformat: 'unixtime', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm', start_hour: wallClock(start, timezone), end_hour: wallClock(end, timezone) })
   try {
     const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`, { redirect: 'manual', signal: AbortSignal.timeout(20000) })
     if (response.status === 429) return { kind: 'limited' }
@@ -115,9 +116,10 @@ export async function refreshPoint(env, resort, point, metas, slot) {
     due.push({ id, updated, from: Math.min(...candidates) })
   }
   if (due.length) {
-    const from = Math.max(start, Math.floor(Math.min(...due.map(d => d.from)) / hour) * hour)
+    let from = Math.max(start, Math.floor(Math.min(...due.map(d => d.from)) / hour) * hour)
+    while (from > start && ambiguous(from, resort.timezone)) from -= hour
     const ids = due.some(d => d.id === 'ecmwf_ifs025') ? due.map(d => d.id) : ['ecmwf_ifs025', ...due.map(d => d.id)]
-    const result = await fetchModels(point, ids, from, end)
+    const result = await fetchModels(point, resort.timezone, ids, from, end)
     if (result.kind === 'ok') {
       const { data } = result
       const single = variables.some(variable => Object.hasOwn(data.hourly, variable))

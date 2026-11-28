@@ -3,6 +3,7 @@ import { resorts } from '../src/catalog.ts'
 import { validLocation } from '../src/customLocations.ts'
 import { validHidden, validWeights } from '../src/weights.ts'
 import { validUnits } from '../src/units.ts'
+import { validChartLayers } from '../src/chartLayers.ts'
 
 const resortIds = new Set(resorts.map(r => r.id))
 const json = (body, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'private, no-store' } })
@@ -17,13 +18,13 @@ export const auth = (env, origin) => betterAuth({
 })
 
 export function validUserData(data) {
-  if (typeof data !== 'object' || data === null || Object.keys(data).length !== 5) return false
-  const { favorites, customLocations, weights, hidden, units } = data
+  if (typeof data !== 'object' || data === null || Object.keys(data).length !== 6) return false
+  const { favorites, customLocations, weights, hidden, units, chartLayers } = data
   if (!Array.isArray(customLocations) || customLocations.length > 200 || !customLocations.every(validLocation)) return false
   const ids = new Set([...resortIds, ...customLocations.map(l => l.id)])
   if (new Set(customLocations.map(l => l.id)).size !== customLocations.length) return false
   return Array.isArray(favorites) && favorites.length <= ids.size && new Set(favorites).size === favorites.length &&
-    favorites.every(id => typeof id === 'string' && ids.has(id)) && validWeights(weights) && validHidden(hidden) && validUnits(units)
+    favorites.every(id => typeof id === 'string' && ids.has(id)) && validWeights(weights) && validHidden(hidden) && validUnits(units) && validChartLayers(chartLayers)
 }
 
 export async function me(request, env, url) {
@@ -32,7 +33,7 @@ export async function me(request, env, url) {
   const userId = session.user.id
   if (request.method === 'GET') {
     const [settings, favorites, locations] = await env.DB.batch([
-      env.DB.prepare('SELECT units, weights, hidden_models FROM user_settings WHERE user_id = ?').bind(userId),
+      env.DB.prepare('SELECT units, weights, hidden_models, chart_layers FROM user_settings WHERE user_id = ?').bind(userId),
       env.DB.prepare('SELECT resort_id FROM user_favorites WHERE user_id = ? ORDER BY position').bind(userId),
       env.DB.prepare('SELECT id, name, lat, lon, elevation, timezone, created_on FROM user_locations WHERE user_id = ? ORDER BY position').bind(userId),
     ])
@@ -44,6 +45,7 @@ export async function me(request, env, url) {
       weights: JSON.parse(row.weights),
       hidden: JSON.parse(row.hidden_models),
       units: JSON.parse(row.units),
+      chartLayers: JSON.parse(row.chart_layers),
     } : null })
   }
   if (request.method !== 'PUT') return new Response(null, { status: 405 })
@@ -54,8 +56,8 @@ export async function me(request, env, url) {
   try { data = JSON.parse(text) } catch { return new Response(null, { status: 400 }) }
   if (!validUserData(data)) return new Response(null, { status: 400 })
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO user_settings (user_id, units, weights, hidden_models, updated_at) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT (user_id) DO UPDATE SET units = ?2, weights = ?3, hidden_models = ?4, updated_at = ?5')
-      .bind(userId, JSON.stringify(data.units), JSON.stringify(data.weights), JSON.stringify(data.hidden), Date.now()),
+    env.DB.prepare('INSERT INTO user_settings (user_id, units, weights, hidden_models, chart_layers, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT (user_id) DO UPDATE SET units = ?2, weights = ?3, hidden_models = ?4, chart_layers = ?5, updated_at = ?6')
+      .bind(userId, JSON.stringify(data.units), JSON.stringify(data.weights), JSON.stringify(data.hidden), JSON.stringify(data.chartLayers), Date.now()),
     env.DB.prepare('DELETE FROM user_favorites WHERE user_id = ?').bind(userId),
     env.DB.prepare('INSERT INTO user_favorites (user_id, resort_id, position) SELECT ?1, value, key FROM json_each(?2)').bind(userId, JSON.stringify(data.favorites)),
     env.DB.prepare('DELETE FROM user_locations WHERE user_id = ?').bind(userId),

@@ -1,10 +1,11 @@
 import { t } from './i18n.ts'
 import type { CustomLocation } from './customLocations'
 import type { Units } from './units'
+import type { ChartLayers } from './chartLayers'
 import type { Weights } from './weather'
 
 export type Account = { name: string; email: string; image: string | null }
-export type UserData = { favorites: string[]; customLocations: CustomLocation[]; weights: Weights; hidden: string[]; units: Units }
+export type UserData = { favorites: string[]; customLocations: CustomLocation[]; weights: Weights; hidden: string[]; units: Units; chartLayers: ChartLayers }
 
 export const accountsEnabled = import.meta.env.VITE_HOSTED_FORECAST === '1'
 

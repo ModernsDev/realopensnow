@@ -152,13 +152,6 @@ td:first-child, th:first-child { text-align: left; }
 .catalog { padding: 20px 24px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .catalog h3 { margin: 0 0 8px; }
 .catalog p { margin: 6px 0; color: #3e5566; }
-.catalog .table-scroll { margin: 14px 0; }
-.catalog table { white-space: normal; min-width: 560px; }
-.catalog td { vertical-align: top; }
-.catalog details { margin-top: 10px; }
-.catalog .catalog { padding-inline: 0; }
-.catalog .chart-heading { padding-inline: 0; }
-.catalog .model-totals, .catalog .chart { margin-inline: 0; }
 .observation-section { border-top: 0; border-bottom: 1px solid var(--line); }
 .observation-section button { margin-top: 4px; }
 .observation-readings { display: grid; grid-template-columns: repeat(auto-fill, 152px); gap: 10px; margin: 14px 0; }

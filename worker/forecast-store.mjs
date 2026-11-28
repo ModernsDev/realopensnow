@@ -1,7 +1,8 @@
 import { queryBlockReason, resorts, waterburyPoint } from '../src/catalog.ts'
 import { forecastBatch, localDate, models, pageForecast } from '../src/weather.ts'
 import { hourlySnow } from './accuracy.mjs'
-import { snapshotUnits } from './forecast-snapshots.mjs'
+
+const snapshotUnits = { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h', rain_sum: 'mm', wet_snowfall_sum: 'cm', freezing_level_height_min: 'm', freezing_level_height_max: 'm' }
 
 const hour = 3600
 const variables = ['snowfall', 'temperature_2m', 'wind_gusts_10m', 'rain', 'freezing_level_height']

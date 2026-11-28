@@ -1,0 +1,9 @@
+[Unit]
+Description=RealOpenSnow favorite forecast refresh
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/realopensnow/run
+TimeoutStartSec=15min

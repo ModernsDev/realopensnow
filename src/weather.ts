@@ -100,6 +100,14 @@ export function total(f: DailySeries, model: string) {
   return values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null
 }
 export const snow = (n: number | null, unit: string) => n === null ? '—' : (n / (unit === 'in' ? 2.54 : 1)).toFixed(1)
+export function requestZone(timezone: string, now = Date.now()) {
+  const name = new Intl.DateTimeFormat('en', { timeZone: timezone, timeZoneName: 'longOffset' }).formatToParts(now).find(part => part.type === 'timeZoneName')!.value
+  const match = /([+-])(\d\d):(\d\d)/.exec(name)
+  if (!match || match[3] === '00') return timezone
+  const hours = Math.ceil((match[1] === '-' ? -1 : 1) * (Number(match[2]) + Number(match[3]) / 60))
+  return hours === 0 ? 'Etc/GMT' : `Etc/GMT${hours > 0 ? '-' : '+'}${Math.abs(hours)}`
+}
+export const inZone = <T,>(data: T, zone: string, timezone: string): T => (data as { timezone?: string })?.timezone === zone ? { ...data, timezone } : data
 export const localDate = (time: number, timezone: string) => new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(time)
 export const forecastExpired = (data: Forecast, now: number) =>
   now - Date.parse(data.fetched) >= 6 * 3600000 || data.dates[0] !== localDate(now, data.timezone)
@@ -223,9 +231,9 @@ export function forecastSource(lat: number, lon: number, elevation: number, time
   return `https://api.open-meteo.com/v1/forecast?${query}`
 }
 
-export function pageSource(resort: Resort, point: QueryPoint) {
+export function pageSource(resort: Resort, point: QueryPoint, zone = requestZone(resort.timezone)) {
   const { lat, lon } = point.coordinates.value!
-  return forecastSource(lat, lon, point.elevation.value!, resort.timezone, 15, 8)
+  return forecastSource(lat, lon, point.elevation.value!, zone, 15, 8)
 }
 
 export function pageForecast(data: Parameters<typeof forecastBatch>[0], resort: Resort, point: QueryPoint, requested: string, fetched: string): ForecastWithReport {
@@ -262,10 +270,11 @@ export async function forecast(resort: Resort, point: QueryPoint, signal?: Abort
   }
   let data
   try {
-    const response = await fetch(pageSource(resort, point), { cache: 'no-store', signal: requestSignal })
+    const zone = requestZone(resort.timezone)
+    const response = await fetch(pageSource(resort, point, zone), { cache: 'no-store', signal: requestSignal })
     if (response.status === 429) throw new Error(t('天气服务已限流（429），请稍后重试。', 'The weather service is rate limiting requests (429). Please try again later.'))
     if (!response.ok) throw new Error(t(`天气服务请求失败（${response.status}）`, `Weather service request failed (${response.status})`))
-    data = await response.json()
+    data = inZone(await response.json(), zone, resort.timezone)
   } catch (error) {
     if (hosted && !resort.custom && !signal?.aborted) {
       const kind = error instanceof Error && error.message.includes('429') ? 'rate_limit' : 'request'

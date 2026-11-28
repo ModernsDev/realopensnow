@@ -39,6 +39,8 @@ npm run build:site && npx wrangler d1 migrations apply DB --local && npx wrangle
    npx wrangler secret put GOOGLE_CLIENT_SECRET
    ```
 
+   天气后端用 `WORKER_SECRET` 读取跟踪点位清单，Worker 用 `ACCESS_CLIENT_ID` 和 `ACCESS_CLIENT_SECRET` 通过 Cloudflare Access 向后端转发天气请求。这三项均通过 Worker secrets 设置。
+
 4. `npm run deploy`：构建、应用 D1 迁移并部署。`npm run deploy:check` 只做打包校验。
 
 `public/privacy.html` 中的联系邮箱与说明针对官方站点，自行部署时请替换。

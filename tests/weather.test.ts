@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { aggregateHourly, aggregatePeriods, upcomingNights, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, models, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
+import { aggregateHourly, aggregatePeriods, upcomingNights, availableModels, pastDates, rangeSeries, forecastDates, forecastExpired, forecast, inZone, models, requestZone, slicePeriod, snow, spread, total, value, type Forecast } from '../src/weather.ts'
 import { resorts } from '../src/catalog.ts'
 
 function hours(start: string, count: number, timezone = 'America/Denver') {
@@ -13,6 +13,17 @@ function hours(start: string, count: number, timezone = 'America/Denver') {
   }
   return { timezone, hourly, hourly_units, latitude: 40.5, longitude: -111.75, elevation: 2667 }
 }
+
+test('half-hour zones are requested in the next whole-hour zone so Open-Meteo returns whole UTC hours', () => {
+  const november = Date.parse('2026-11-28T12:00:00Z'), july = Date.parse('2026-07-01T12:00:00Z')
+  assert.equal(requestZone('America/St_Johns', november), 'Etc/GMT+3')
+  assert.equal(requestZone('America/St_Johns', july), 'Etc/GMT+2')
+  assert.equal(requestZone('Asia/Kolkata', november), 'Etc/GMT-6')
+  assert.equal(requestZone('America/New_York', november), 'America/New_York')
+  assert.equal(requestZone('UTC', november), 'UTC')
+  assert.deepEqual(inZone({ timezone: 'Etc/GMT+3', x: 1 }, 'Etc/GMT+3', 'America/St_Johns'), { timezone: 'America/St_Johns', x: 1 })
+  assert.deepEqual(inZone({ timezone: 'Etc/GMT+4' }, 'Etc/GMT+3', 'America/St_Johns'), { timezone: 'Etc/GMT+4' })
+})
 
 test('civil dates use resort timezone at UTC midnight and include today plus six days', () => {
   assert.equal(forecastDates('2026-11-17T01:00:00Z', 'America/Denver')[0], '2026-11-16')

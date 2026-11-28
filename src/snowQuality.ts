@@ -5,7 +5,7 @@ export type SnowGrade = 'unknown' | 'none' | 'light' | 'good' | 'excellent' | 'w
 
 export const snowGrades: Record<SnowGrade, { name: string; rule: string }> = {
   unknown: { name: t('未知', 'Unknown'), rule: t('降雪量、降雨量或湿雪量缺少加权数据。', "Weighted snowfall, rain or wet-snow data is missing.") },
-  none: { name: t('无新雪', 'No new snow'), rule: t('未达到雨的条件，且降雪量低于 0.1 cm。', "Not rain, and snowfall is under 0.1 cm.") },
+  none: { name: t('无', 'None'), rule: t('未达到雨的条件，且降雪量低于 0.1 cm。', "Not rain, and snowfall is under 0.1 cm.") },
   light: { name: t('少量', 'Light'), rule: t('未达到雨的条件，且降雪量至少为 0.1 cm、低于 2.5 cm。', "Not rain, and snowfall is at least 0.1 cm but under 2.5 cm.") },
   good: { name: t('好', 'Good'), rule: t('降雪量至少为 2.5 cm，降雨量低于 1 mm，湿雪占比低于 50%，且未达到极好条件。', "Snowfall at least 2.5 cm, rain under 1 mm, wet share under 50%, and not excellent.") },
   excellent: { name: t('极好', 'Excellent'), rule: t('降雪量至少为 12.5 cm，降雨量低于 1 mm，湿雪占比低于 20%，且前一日等级不是雨或湿雪。', "Snowfall at least 12.5 cm, rain under 1 mm, wet share under 20%, and the previous day was not rain or wet snow.") },

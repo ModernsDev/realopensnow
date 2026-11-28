@@ -1,4 +1,4 @@
-import { resorts, waterburyPoint } from '../src/catalog.ts'
+import { queryBlockReason, resorts, waterburyPoint } from '../src/catalog.ts'
 import { forecastBatch, forecastSource } from '../src/weather.ts'
 import { hourlySnow, summarizeAccuracy } from './accuracy.mjs'
 import { stoweDailyReports } from './stowe-observations.mjs'
@@ -9,16 +9,18 @@ const sixHours = 6 * 3_600_000
 const accuracyPeriod = 38 * 24 * 3_600_000
 const fail = (en, zh, english, status) => Response.json({ error: en ? english : zh }, { status, headers: noCache })
 
-export async function captureSnapshot(env, pointId, en = false) {
-  const resort = resorts.find(r => r.points.some(point => point.id === pointId))
-  const point = resort.points.find(p => p.id === pointId)
+class SnapshotError extends Error {
+  constructor(status, zh, english) { super(english); this.status = status; this.zh = zh }
+}
+
+async function saveSnapshot(env, resort, point) {
   const { lat, lon } = point.coordinates.value
   const source = forecastSource(lat, lon, point.elevation.value, resort.timezone)
   const requested = new Date().toISOString()
   let batch, hourly
   try {
     const upstream = await fetch(source, { redirect: 'manual', signal: AbortSignal.timeout(12000) })
-    if (upstream.status === 429) return fail(en, 'Open-Meteo 已限流，未保存快照。', 'Open-Meteo is rate limiting requests; no snapshot was saved.', 429)
+    if (upstream.status === 429) throw new SnapshotError(429, 'Open-Meteo 已限流，未保存快照。', 'Open-Meteo is rate limiting requests; no snapshot was saved.')
     if (!upstream.ok) throw new Error(`Open-Meteo HTTP ${upstream.status}`)
     const data = await upstream.json()
     batch = {
@@ -26,20 +28,51 @@ export async function captureSnapshot(env, pointId, en = false) {
       issuedAt: null,
       units: { snowfall_sum: 'cm', temperature_2m_min: '°C', temperature_2m_max: '°C', wind_gusts_10m_max: 'km/h', rain_sum: 'mm', wet_snowfall_sum: 'cm', freezing_level_height_min: 'm', freezing_level_height_max: 'm' },
     }
-    hourly = pointId === waterburyPoint.id ? hourlySnow(data) : null
+    hourly = point.id === waterburyPoint.id ? hourlySnow(data) : null
   } catch (error) {
-    console.warn('forecast_snapshot_upstream', pointId, error.message)
-    return fail(en, '上游预报暂不可用，未保存快照。', 'The upstream forecast is unavailable; no snapshot was saved.', 502)
+    if (error instanceof SnapshotError) throw error
+    console.warn('forecast_snapshot_upstream', point.id, error.message)
+    throw new SnapshotError(502, '上游预报暂不可用，未保存快照。', 'The upstream forecast is unavailable; no snapshot was saved.')
   }
-
   try {
     const { id } = await env.DB.prepare('INSERT INTO forecast_snapshots (point, fetched_at, payload, hourly_snow) VALUES (?, ?, ?, ?) RETURNING id')
-      .bind(pointId, Date.parse(batch.fetched), JSON.stringify(batch), hourly ? JSON.stringify(hourly) : null).first()
-    return Response.json({ id, data: batch }, { status: 201, headers: noCache })
+      .bind(point.id, Date.parse(batch.fetched), JSON.stringify(batch), hourly ? JSON.stringify(hourly) : null).first()
+    return { id, data: batch }
   } catch (error) {
-    console.error('forecast_snapshot_write', pointId, error.message)
-    return fail(en, '快照保存失败，请重试。', 'Could not save the snapshot. Please try again.', 503)
+    console.error('forecast_snapshot_write', point.id, error.message)
+    throw new SnapshotError(503, '快照保存失败，请重试。', 'Could not save the snapshot. Please try again.')
   }
+}
+
+export async function captureSnapshot(env, pointId, en = false) {
+  const resort = resorts.find(r => r.points.some(point => point.id === pointId))
+  try {
+    return Response.json(await saveSnapshot(env, resort, resort.points.find(p => p.id === pointId)), { status: 201, headers: noCache })
+  } catch (error) {
+    return fail(en, error.zh, error.message, error.status)
+  }
+}
+
+export async function refreshFavorites(env) {
+  const { results } = await env.DB.prepare('SELECT DISTINCT resort_id FROM user_favorites').all()
+  const ids = new Set(results.map(r => r.resort_id))
+  const queue = resorts.filter(r => ids.has(r.id)).flatMap(resort => resort.points.filter(point => !queryBlockReason(resort, point)).map(point => [resort, point]))
+  let saved = 0, failed = 0, limited = false
+  const worker = async () => {
+    for (let job = queue.shift(); job && !limited; job = queue.shift()) {
+      try {
+        await saveSnapshot(env, ...job)
+        saved++
+      } catch (error) {
+        failed++
+        if (error.status === 429) limited = true
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, worker))
+  const summary = { event: 'favorite_refresh', resorts: ids.size, saved, failed, skipped: queue.length, limited }
+  console[failed ? 'warn' : 'log'](JSON.stringify(summary))
+  return summary
 }
 
 const timeOrder = 'ORDER BY fetched_at DESC, id DESC'

@@ -1,6 +1,6 @@
 import { assets, points } from './generated.js'
 import { stoweObservationPath, stoweObservations } from './stowe-observations.mjs'
-import { captureSnapshot, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
+import { captureSnapshot, refreshFavorites, snapshotHistory, stationAccuracy } from './forecast-snapshots.mjs'
 import { auth, me } from './accounts.mjs'
 
 async function api(request, env, url) {
@@ -22,6 +22,9 @@ async function api(request, env, url) {
 }
 
 export default {
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(refreshFavorites(env))
+  },
   async fetch(request, env) {
     const url = new URL(request.url)
     if (url.pathname === stoweObservationPath) {

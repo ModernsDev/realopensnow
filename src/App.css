@@ -135,7 +135,7 @@ tr.today > * { border-top: 2px solid var(--blue); }
 .chart.split .bars.compact .bar-column { min-width: 4px; }
 .chart.long.split { min-width: calc(var(--days) * 56px); }
 .legend-parts { color: var(--muted); }
-td.part { white-space: nowrap; }
+tr > td.part { white-space: nowrap; text-align: center; }
 td.part small { color: var(--muted); }
 
 .table-scroll { overflow-x: auto; margin: 0 24px; }

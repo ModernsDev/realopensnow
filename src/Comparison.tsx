@@ -4,7 +4,8 @@ import { temp, wind, type Units } from './units'
 import { useState } from 'react'
 import { compareForecasts, compareNights } from './compareForecasts'
 import { snowGrades } from './snowQuality'
-import { models, snow, total, weighted, weightLabel, type ForecastWithReport, type Weights } from './weather'
+import { AgreementTag } from './Forecast'
+import { agreementNote, models, snow, total, weighted, weightLabel, type ForecastWithReport, type Weights } from './weather'
 
 type Candidate = { resort: Resort; point: QueryPoint; data?: ForecastWithReport; error?: string; loading: boolean }
 const mornings = [1, 3, 5] as const
@@ -71,15 +72,16 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
               </th>
             })}</tr></thead>
             <tbody>
-              <tr><th scope="row">{nightCount === null ? t('累计降雪', 'Total snow') : t('过夜降雪合计', 'Overnight total')} ({units.snow})</th>{columns.map(({ index, total, rank }) => (
+              <tr><th scope="row">{nightCount === null ? t('累计降雪', 'Total snow') : t('过夜降雪合计', 'Overnight total')} ({units.snow})</th>{columns.map(({ index, total, rank, agreement }) => (
                 <td key={comparing[index].resort.id}>{comparing[index].error
                   ? <span className="error">{comparing[index].error} · {t('未排名', 'unranked')}</span>
-                  : rank === null ? dates.length ? t('数据缺失 · 未排名', 'Missing data · unranked') : t('无共同日期 · 未排名', 'No shared dates · unranked') : t(`第 ${rank} 名 · ${snow(total, units.snow)}`, `#${rank} · ${snow(total, units.snow)}`)}</td>
+                  : <>{rank === null ? dates.length ? t('数据缺失 · 未排名', 'Missing data · unranked') : t('无共同日期 · 未排名', 'No shared dates · unranked') : t(`第 ${rank} 名 · ${snow(total, units.snow)}`, `#${rank} · ${snow(total, units.snow)}`)}{comparing[index].data && dates.length > 0 && <span><AgreementTag a={agreement} /></span>}</>}</td>
               ))}</tr>
               {nightCount === null ? daily.dates.map((date, i) => <tr key={date}>
                 <th scope="row">{date}</th>
                 {daily.columns.map(({ index, days }) => <td key={comparing[index].resort.id}>
                   <span>{t('降雪', 'Snow')} {days[i].snow === null ? t('缺失', 'missing') : `${snow(days[i].snow, units.snow)} ${units.snow}`}</span>
+                  {comparing[index].data && <span><AgreementTag a={days[i].agreement} /></span>}
                   <span>{t('气温', 'Temp')} {days[i].low === null ? t('缺失', 'missing') : `${temp(days[i].low, units)} ${units.temperature}`} {t('至', 'to')} {days[i].high === null ? t('缺失', 'missing') : `${temp(days[i].high, units)} ${units.temperature}`}</span>
                   <span>{t('阵风', 'Gusts')} {days[i].gust === null ? t('缺失', 'missing') : `${wind(days[i].gust, units)} ${units.wind}`}</span>
                 </td>)}
@@ -91,6 +93,7 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
                   return <td key={comparing[index].resort.id}>
                     {overnight.mornings[i].length > 1 && <span>{night.morning} {t('早晨', 'morning')}</span>}
                     <span>{t('降雪', 'Snow')} {night.snow === null ? t('缺失', 'missing') : `${snow(night.snow, units.snow)} ${units.snow}`}</span>
+                    <span><AgreementTag a={night.agreement} /></span>
                     <span><span className={`grade grade-${night.grade.grade}`} title={snowGrades[night.grade.grade].rule}>{snowGrades[night.grade.grade].name}{night.grade.wetBefore && (night.grade.grade === 'light' || night.grade.grade === 'good') && <small> · {t('白天偏湿', 'wet day before')}</small>}</span></span>
                     {night.hours !== 12 && <span className="muted">{t(`夏令时调整，${night.hours} 小时`, `Daylight saving change, ${night.hours} hours`)}</span>}
                   </td>
@@ -99,6 +102,7 @@ export function Comparison({ candidates, selected, onToggle, weights, model, set
             </tbody>
           </table>
         </div>
+        <p className="muted">{agreementNote}</p>
         {model === weighted.id && <p className="muted">{t('加权综合', 'Weighted blend')} = {weightLabel(weights)} · <a href="#settings">{t('修改权重', 'Edit weights')}</a></p>}
       </>}
     </> : <p className="empty">{candidates.length < 2 ? t('请先收藏至少两个雪场。', 'Favorite at least two resorts first.') : t('请选择至少两个收藏雪场开始对比。', 'Choose at least two favorite resorts to compare.')}</p>}

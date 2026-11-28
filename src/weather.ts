@@ -75,7 +75,26 @@ export function spread(f: DailySeries, field: string, i: number) {
   const values = modelValues(f, field, i).map(m => m.n)
   return values.length < 2 ? null : { low: Math.min(...values), high: Math.max(...values) }
 }
-export const fixed = (n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
+export type AgreementLevel = 'agree' | 'split' | 'wide' | 'uncertain'
+export type Agreement = { level: AgreementLevel; count: number }
+export function agreement(values: number[]): Agreement | null {
+  if (values.length < 2) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = sorted.length / 2
+  const median = sorted.length % 2 ? sorted[Math.floor(mid)] : (sorted[mid - 1] + sorted[mid]) / 2
+  const count = values.length
+  if (median < 0.1 && sorted.at(-1)! >= 1) return { level: 'uncertain', count }
+  const ratio = (sorted.at(-1)! - sorted[0]) / Math.max(median, 3)
+  return { level: ratio <= 0.6 ? 'agree' : ratio <= 1.5 ? 'split' : 'wide', count }
+}
+export const agreementNames = { agree: t('一致', 'Agree'), split: t('有分歧', 'Mixed'), wide: t('严重分歧', 'Wide split'), uncertain: t('降雪不确定', 'Snow uncertain') }
+export const agreementNote = t('一致性标签描述各模型降雪预报的分歧程度，不是降雪概率。「降雪不确定」表示多数模型无雪但部分模型报雪。', 'Agreement labels describe how far the models disagree on snowfall; they are not a probability of snow. "Snow uncertain" means most models show no snow but some do.')
+export const snowAgreement = (f: DailySeries, i: number) => agreement(modelValues(f, 'snowfall_sum', i).map(m => m.n))
+export function totalAgreement(f: DailySeries, indices = f.dates.map((_, i) => i)) {
+  const totals = visibleModels(f).map(m => indices.map(i => f.daily[`snowfall_sum_${m.id}`]?.[i] ?? null)).filter((v): v is number[] => v.length > 0 && v.every(n => n !== null))
+  return agreement(totals.map(v => v.reduce((a, b) => a + b, 0)))
+}
+export const fixed =(n: number | null) => n === null ? '—' : String(Math.round(n * 10) / 10)
 export function total(f: DailySeries, model: string) {
   const values = f.dates.map((_, i) => value(f, 'snowfall_sum', model, i))
   return values.every(v => v !== null) ? values.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null

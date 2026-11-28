@@ -114,7 +114,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 .chart-scroll { overflow-x: auto; }
 .chart { margin: 18px 24px 24px; display: flex; gap: 18px; }
 .day { flex: 1; min-width: 0; text-align: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.day.past .bar-column div { opacity: .45; }
+.day.past .bar-column > div { opacity: .45; }
 .day.today { position: relative; }
 .day.today::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; border-left: 2px dashed var(--line-strong); }
 .day.today em { position: absolute; left: -5px; top: -2px; font-size: 11px; font-style: normal; color: var(--blue); }
@@ -127,10 +127,10 @@ tr.today > * { border-top: 2px solid var(--blue); }
 .bars.compact { gap: 1px; }
 .bars.compact .bar-column { min-width: 6px; }
 .bar-column span { font-size: 11px; color: var(--ink); }
-.bar-column div { min-height: 1px; border-radius: 3px 3px 0 0; }
-.bar-column.day div { opacity: .55; }
+.bar-column > div { min-height: 1px; border-radius: 3px 3px 0 0; }
+.bar-column.day > div { opacity: .55; }
 .bar-column.day + .bar-column.night { margin-left: 5px; }
-.day.past .bar-column.day div { opacity: .25; }
+.day.past .bar-column.day > div { opacity: .25; }
 .chart.split .bar-column { min-width: 18px; }
 .chart.split .bars.compact .bar-column { min-width: 4px; }
 .chart.long.split { min-width: calc(var(--days) * 56px); }
@@ -283,3 +283,23 @@ td:first-child, th:first-child { text-align: left; }
 .agreement-uncertain { background: #efe6f8; color: #6b3fa0; }
 .tile-snow .agreement, .compare td .agreement { display: inline-block; margin-top: 4px; }
 .tile-stats .agreement { display: table; margin: 2px 0 0 auto; }
+.bar-column:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.bar-stack { position: relative; }
+.bar-stack .bar { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px 3px 0 0; }
+.hatch-split { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.5) 0 2px, transparent 2px 7px) !important; }
+.hatch-wide { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.65) 0 3px, transparent 3px 5px) !important; }
+.whisker { position: absolute; left: 50%; width: 0; border-left: 2px solid var(--ink); transform: translateX(-1px); }
+.whisker::before, .whisker::after { content: ""; position: absolute; left: -5px; width: 8px; border-top: 2px solid var(--ink); }
+.whisker::before { top: 0; }
+.whisker::after { bottom: 0; }
+.whisker.uncertain { border-left-style: dashed; }
+.simple-legend { gap: 6px 14px; }
+.whisker-key { display: inline-block; width: 0; height: 12px; border-left: 2px solid var(--ink); }
+.whisker-key.uncertain { border-left-style: dashed; }
+.chart-tip { position: fixed; z-index: 20; width: 220px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 6px 20px rgba(20, 43, 61, .16); font-size: 12px; color: var(--ink); text-align: left; pointer-events: none; }
+.chart-tip p { margin: 4px 0 0; }
+.chart-tip dl { display: grid; gap: 2px; margin: 8px 0 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.chart-tip dl > div { display: flex; justify-content: space-between; gap: 8px; }
+.chart-tip dt { display: flex; gap: 6px; align-items: center; }
+.chart-tip dt i { width: 8px; height: 8px; border-radius: 2px; }
+.chart-tip dd { margin: 0; font-variant-numeric: tabular-nums; }

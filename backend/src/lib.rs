@@ -1,6 +1,11 @@
 pub mod accuracy;
 pub mod aggregate;
 pub mod catalog;
+pub mod db;
+pub mod demand;
+pub mod http;
+pub mod io;
+pub mod jobs;
 pub mod models;
 pub mod ready;
 pub mod refresh;

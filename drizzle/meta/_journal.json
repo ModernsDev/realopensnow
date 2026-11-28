@@ -50,6 +50,13 @@
       "when": 1795738800000,
       "tag": "0006_chart_layers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1795742400000,
+      "tag": "0007_forecast_range",
+      "breakpoints": true
     }
   ]
 }

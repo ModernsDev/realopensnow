@@ -88,7 +88,7 @@ export function agreement(values: number[]): Agreement | null {
   return { level: ratio <= 0.6 ? 'agree' : ratio <= 1.5 ? 'split' : 'wide', count }
 }
 export const agreementNames = { agree: t('一致', 'Agree'), split: t('有分歧', 'Mixed'), wide: t('严重分歧', 'Wide split'), uncertain: t('降雪不确定', 'Snow uncertain') }
-export const agreementNote = t('一致性标签描述各模型降雪预报的分歧程度，不是降雪概率。「降雪不确定」表示多数模型无雪但部分模型报雪。', 'Agreement labels describe how far the models disagree on snowfall; they are not a probability of snow. "Snow uncertain" means most models show no snow but some do.')
+export const agreementNote = t('一致性标签描述各模型降雪预报的分歧程度，不是降雪概率，过去的日期不显示。「降雪不确定」表示多数模型无雪但部分模型报雪。', 'Agreement labels describe how far the models disagree on forecast snowfall; they are not a probability of snow and are not shown for past days. "Snow uncertain" means most models show no snow but some do.')
 export const snowAgreement = (f: DailySeries, i: number) => agreement(modelValues(f, 'snowfall_sum', i).map(m => m.n))
 export function totalAgreement(f: DailySeries, indices = f.dates.map((_, i) => i)) {
   const totals = visibleModels(f).map(m => indices.map(i => f.daily[`snowfall_sum_${m.id}`]?.[i] ?? null)).filter((v): v is number[] => v.length > 0 && v.every(n => n !== null))

@@ -123,7 +123,7 @@ main { padding-block: 24px 32px; min-width: 0; }
 tr.past > * { color: var(--muted); }
 tr.today > * { border-top: 2px solid var(--blue); }
 .bars { height: 200px; display: flex; gap: 4px; align-items: flex-end; margin-bottom: 8px; border-bottom: 1px solid var(--line-strong); }
-.bar-column { flex: 1; min-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.bar-column { flex: 1; align-self: stretch; min-width: 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
 .bars.compact { gap: 1px; }
 .bars.compact .bar-column { min-width: 6px; }
 .bar-column span { font-size: 11px; color: var(--ink); }

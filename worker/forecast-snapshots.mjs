@@ -1,5 +1,5 @@
 import { resorts, waterburyPoint } from '../src/catalog.ts'
-import { forecastBatch, forecastSource } from '../src/weather.ts'
+import { forecastBatch, forecastSource, inZone, requestZone } from '../src/weather.ts'
 import { hourlySnow, summarizeAccuracy } from './accuracy.mjs'
 import { stoweDailyReports } from './stowe-observations.mjs'
 
@@ -16,14 +16,15 @@ class SnapshotError extends Error {
 
 async function saveSnapshot(env, resort, point) {
   const { lat, lon } = point.coordinates.value
-  const source = forecastSource(lat, lon, point.elevation.value, resort.timezone)
+  const zone = requestZone(resort.timezone)
+  const source = forecastSource(lat, lon, point.elevation.value, zone)
   const requested = new Date().toISOString()
   let batch, hourly
   try {
     const upstream = await fetch(source, { redirect: 'manual', signal: AbortSignal.timeout(12000) })
     if (upstream.status === 429) throw new SnapshotError(429, 'Open-Meteo 已限流，未保存快照。', 'Open-Meteo is rate limiting requests; no snapshot was saved.')
     if (!upstream.ok) throw new Error(`Open-Meteo HTTP ${upstream.status}`)
-    const data = await upstream.json()
+    const data = inZone(await upstream.json(), zone, resort.timezone)
     batch = {
       ...forecastBatch(data, resort, point, requested, new Date().toISOString()),
       issuedAt: null,

@@ -108,6 +108,22 @@ test('the window end stays inside the local date range Open-Meteo allows once th
   assert.deepEqual(world.requests, [{ models: models.map(m => m.id), from: window.start, to: window.end }])
 })
 
+test('a half-hour zone point is fetched in a whole-hour zone and served', async t => {
+  const morning = Date.parse('2026-11-28T12:00:00Z')
+  clock(t, morning)
+  const world = upstream(t)
+  const { env } = database()
+  const marble = resorts.find(r => r.id === 'ca-nl-marble-mountain')!
+  const point = marble.points[0]
+  const result = await refreshPoint(env, marble, point, metas(world), null)
+  const window = forecastWindow(morning, marble.timezone)
+  assert.deepEqual(result, { committed: true, fetched: 10, failed: 0, limited: false })
+  assert.deepEqual(world.requests, [{ models: models.map(m => m.id), from: window.start, to: window.end }])
+  const response = await latestForecast(env, point.id)
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).timezone, 'America/St_Johns')
+})
+
 test('later runs fetch only models with a new run, from the last seen run onward', async t => {
   clock(t)
   const world = upstream(t)
